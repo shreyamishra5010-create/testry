@@ -1,0 +1,2 @@
+-- The Node API creates the SQLite schema on startup.
+-- Position ordering uses integer positions, renumbered when cards move.

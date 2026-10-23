@@ -1,0 +1,52 @@
+{
+  "context": "webapp_dashboard",
+  "app_type": "hybrid_fullstack",
+  "design_strategy": {
+    "archetype": "ARCHETYPE 4: SWISS & HIGH-CONTRAST / MODERN WORKPLACE",
+    "vibe": "Clean bright Trello-like workspace with crisp information architecture, high legibility, and delightful micro-interactions",
+    "color_palette": {
+      "primary": "#0052CC",
+      "primary_hover": "#0747A6",
+      "background_light": "#F4F5F7",
+      "surface_light": "#FFFFFF",
+      "text_main": "#172B4D",
+      "text_muted": "#5E6C84",
+      "border": "#DFE1E6",
+      "accent_green": "#00875A",
+      "accent_yellow": "#FFAB00",
+      "accent_red": "#DE350B",
+      "accent_purple": "#6554C0"
+    },
+    "typography": {
+      "heading_font": "Plus Jakarta Sans, sans-serif",
+      "body_font": "Inter, sans-serif",
+      "weights": {
+        "normal": "400",
+        "medium": "500",
+        "semibold": "600",
+        "bold": "700"
+      }
+    }
+  },
+  "image_urls": [
+    {
+      "category": "kanban_workspace",
+      "description": "Workspace kanban preview image",
+      "image_url": "https://images.unsplash.com/photo-1787839227786-17f3149942a5?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1ODF8MHwxfHNlYXJjaHwxfHxrYW5iYW4lMjB0YXNrJTIwYm9hcmQlMjB3b3Jrc3BhY2V8ZW58MHx8fHwxNzkyNzc0MjE3fDA&ixlib=rb-4.1.0&q=85"
+    },
+    {
+      "category": "desk_setup",
+      "description": "Clean desk setup with kanban board",
+      "image_url": "https://images.unsplash.com/photo-1787839193855-766a9d729b91?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1ODF8MHwxfHNlYXJjaHwzfHxrYW5iYW4lMjB0YXNrJTIwYm9hcmQlMjB3b3Jrc3BhY2V8ZW58MHx8fHwxNzkyNzc0MjE3fDA&ixlib=rb-4.1.0&q=85"
+    }
+  ],
+  "component_path": "/app/frontend/public/",
+  "instructions_to_main_agent": "Build a robust Kanban Task Board full-stack application with Node.js/Express + SQLite backend and interactive frontend in HTML/Vanilla JS with fetch API calls. Ensure JWT auth, Board CRUD with default columns (To Do, In Progress, Done), Column CRUD (with delete policy choice: delete tasks or move to To Do), Task CRUD, drag-and-drop with position persistence, member management by email, comments on tasks, and keyword/priority/assignee filtering. All interactive elements must include data-testid attributes.",
+  "UNIVERSAL GUIDELINES FOR MAIN AGENT": [
+    "Every interactive and key informational element MUST include a data-testid attribute.",
+    "Never use complete transparent background in headers or overlays.",
+    "Use generous spacing, clear typography hierarchy, and accessible contrast.",
+    "Ensure smooth DOM updates on fetch calls without full page reloads.",
+    "Implement drag-and-drop with persistent position saving."
+  ]
+}

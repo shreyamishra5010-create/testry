@@ -1,0 +1,1 @@
+-- Demo data is inserted automatically on first startup.
