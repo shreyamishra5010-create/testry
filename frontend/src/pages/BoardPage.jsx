@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Plus, Settings } from "lucide-react";
+import { Plus, Settings, History } from "lucide-react";
 import { toast } from "sonner";
 import { api, initials, reorder } from "@/lib/api";
 import { Header } from "@/components/Header";
@@ -12,6 +12,7 @@ import { ColumnModal } from "@/components/board/ColumnModal";
 import { Comments } from "@/components/board/Comments";
 import { MembersModal } from "@/components/board/MembersModal";
 import { BoardSettingsModal } from "@/components/board/BoardSettingsModal";
+import { ActivityPanel } from "@/components/board/ActivityPanel";
 
 export default function BoardPage({ user, onLogout }) {
   const { id } = useParams();
@@ -21,7 +22,10 @@ export default function BoardPage({ user, onLogout }) {
   const [filters, setFilters] = useState({ query: "", priority: "all", assignee: "all" });
   const [modal, setModal] = useState(null);
   const [drag, setDrag] = useState(null);
-  const load = useCallback(() => api(`/boards/${id}`).then(setBoard).catch((e) => setError(e.message)), [id]);
+  const [colDrag, setColDrag] = useState(null);
+  const [showActivity, setShowActivity] = useState(false);
+  const [version, setVersion] = useState(0);
+  const load = useCallback(() => api(`/boards/${id}`).then((b) => { setBoard(b); setVersion((v) => v + 1); }).catch((e) => setError(e.message)), [id]);
   useEffect(() => { load(); }, [load]);
 
   const attempt = async (fn) => { try { await fn(); } catch (e) { toast.error(e.message); } finally { load(); } };
@@ -40,6 +44,20 @@ export default function BoardPage({ user, onLogout }) {
     setDrag(null);
     setBoard((b) => ({ ...b, columns: reorder(b.columns, task, columnId, index) }));
     attempt(() => api(`/tasks/${task.id}/move`, { method: "PATCH", body: JSON.stringify({ column_id: columnId, position: index }) }));
+  };
+  const moveColumn = (column, index) => {
+    setBoard((b) => {
+      const others = b.columns.filter((c) => c.id !== column.id);
+      others.splice(index, 0, b.columns.find((c) => c.id === column.id));
+      return { ...b, columns: others };
+    });
+    attempt(() => api(`/columns/${column.id}/move`, { method: "PATCH", body: JSON.stringify({ position: index }) }));
+  };
+  const onColumnDrop = (target, after) => {
+    const column = colDrag;
+    setColDrag(null);
+    if (!column || column.id === target.id) return;
+    moveColumn(column, board.columns.filter((c) => c.id !== column.id).findIndex((c) => c.id === target.id) + (after ? 1 : 0));
   };
   const saveTask = (d) => attempt(async () => {
     if (modal.task) await api(`/tasks/${modal.task.id}`, { method: "PATCH", body: JSON.stringify(d) });
@@ -61,21 +79,23 @@ export default function BoardPage({ user, onLogout }) {
           <div className="member-stack">
             {board.members.map((m) => <span key={m.id} title={m.name} data-testid={`member-avatar-${m.id}`}>{initials(m.name)}</span>)}
             <button className="add-member" data-testid="add-member-button" aria-label="Manage members" onClick={() => setModal({ type: "member" })}><Plus size={15} /></button>
+            <button className="ghost activity-button" data-testid="activity-button" onClick={() => setShowActivity(true)}><History size={16} /> Activity</button>
             {board.owner_id === user.id && <button className="icon-button board-settings" data-testid="board-settings-button" aria-label="Board settings" onClick={() => setModal({ type: "board" })}><Settings size={17} /></button>}
           </div>
         </div>
         <BoardToolbar filters={filters} setFilters={setFilters} members={board.members} />
         <div className="columns" data-testid="kanban-board">
-          {board.columns.map((col) => <BoardColumn key={col.id} col={col} visible={matches(filters)} drag={drag} setDrag={setDrag} onDropAt={onDropAt} setModal={setModal} deleteTask={deleteTask} />)}
+          {board.columns.map((col) => <BoardColumn key={col.id} col={col} visible={matches(filters)} drag={drag} setDrag={setDrag} colDrag={colDrag} setColDrag={setColDrag} onDropAt={onDropAt} onColumnDrop={onColumnDrop} setModal={setModal} deleteTask={deleteTask} />)}
           <button className="add-column" data-testid="add-column-button" onClick={() => setModal({ type: "add-column" })}><Plus size={18} /> Add column</button>
         </div>
       </main>
       {modal?.type === "task" && <TaskModal task={modal.task} column={modal.column || board.columns[0]} board={board} close={close} save={saveTask} />}
       {modal?.type === "comments" && <Comments task={modal.task} close={close} user={user} onChange={load} />}
       {modal?.type === "add-column" && <SimpleModal title="Add column" placeholder="Column name" close={close} onSave={addColumn} />}
-      {modal?.type === "column" && <ColumnModal column={modal.column} close={close} reload={load} />}
+      {modal?.type === "column" && <ColumnModal column={modal.column} index={board.columns.findIndex((c) => c.id === modal.column.id)} total={board.columns.length} onMove={(i) => moveColumn(modal.column, i)} close={close} reload={load} />}
       {modal?.type === "member" && <MembersModal board={board} user={user} close={close} setBoard={setBoard} />}
       {modal?.type === "board" && <BoardSettingsModal board={board} close={close} setBoard={setBoard} />}
+      {showActivity && <ActivityPanel boardId={id} version={version} close={() => setShowActivity(false)} />}
     </div>
   );
 }

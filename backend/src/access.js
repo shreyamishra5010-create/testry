@@ -50,4 +50,9 @@ async function placeTask(task, columnId, index) {
   if (task.column_id !== columnId) await renumber(task.column_id);
 }
 
-module.exports = { h, HttpError, membership, ownerOf, loadOr404, boardPayload, placeTask };
+const logActivity = (boardId, userId, action, message) =>
+  run('INSERT INTO activity(board_id,user_id,action,message,created_at) VALUES(?,?,?,?,?)', [boardId, userId, action, message, now()]);
+
+const columnName = async (id) => (await get('SELECT name FROM columns WHERE id=?', [id]))?.name;
+
+module.exports = { h, HttpError, membership, ownerOf, loadOr404, boardPayload, placeTask, logActivity, columnName };

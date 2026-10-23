@@ -12,6 +12,8 @@ erDiagram
     USERS ||--o{ TASKS : creates
     TASKS ||--o{ COMMENTS : has
     USERS ||--o{ COMMENTS : writes
+    BOARDS ||--o{ ACTIVITY : logs
+    USERS |o--o{ ACTIVITY : performs
 
     USERS {
         int id PK
@@ -60,12 +62,20 @@ erDiagram
         text body
         text created_at
     }
+    ACTIVITY {
+        int id PK
+        int board_id FK
+        int user_id FK "nullable"
+        text action
+        text message
+        text created_at
+    }
 ```
 
 ## Cascade rules
 | Delete | Effect |
 |---|---|
-| Board | Its members, columns, tasks, and comments are deleted |
+| Board | Its members, columns, tasks, comments, and activity are deleted |
 | Column | Its tasks and their comments are deleted |
 | Task | Its comments are deleted |
 | User | Assigned tasks become unassigned (`SET NULL`) |

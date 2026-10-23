@@ -1,6 +1,6 @@
 const router = require('express').Router();
 const { run, get, all, now } = require('../db');
-const { h, membership, ownerOf, boardPayload } = require('../access');
+const { h, membership, ownerOf, boardPayload, logActivity } = require('../access');
 
 const DEFAULT_COLUMNS = [['To Do', '#0052CC'], ['In Progress', '#FFAB00'], ['Done', '#00875A']];
 
@@ -65,7 +65,15 @@ router.post('/:id/columns', h(async (req, res) => {
   if (!name) return res.status(400).json({ error: 'Column name is required.' });
   const { p } = await get('SELECT COALESCE(MAX(position),-1) p FROM columns WHERE board_id=?', [req.params.id]);
   const c = await run('INSERT INTO columns(board_id,name,position,color) VALUES(?,?,?,?)', [req.params.id, name, p + 1, req.body.color || '#6554C0']);
+  await logActivity(req.params.id, req.user.id, 'column.added', `added column "${name}"`);
   res.status(201).json(await get('SELECT * FROM columns WHERE id=?', [c.id]));
+}));
+
+router.get('/:id/activity', h(async (req, res) => {
+  await membership(req.params.id, req.user.id);
+  const limit = Math.min(Math.max(Number(req.query.limit) || 50, 1), 200);
+  res.json(await all(`SELECT a.id, a.action, a.message, a.created_at, a.user_id, COALESCE(u.name,'Former user') user_name
+    FROM activity a LEFT JOIN users u ON u.id=a.user_id WHERE a.board_id=? ORDER BY a.created_at DESC, a.id DESC LIMIT ?`, [req.params.id, limit]));
 }));
 
 module.exports = router;

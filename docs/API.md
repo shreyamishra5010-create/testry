@@ -38,6 +38,7 @@ Errors always look like `{ "error": "message" }`.
 |---|---|---|---|
 | POST | `/boards/:id/columns` | `{name, color?}` | Appended at the end |
 | PATCH | `/columns/:id` | `{name}` | Rename |
+| PATCH | `/columns/:id/move` | `{position}` | 0-based index among the board's columns; renumbers densely. Returns ordered columns |
 | DELETE | `/columns/:id` | – | **Deletes the column and its tasks.** Returns `{ok, deleted_tasks}` |
 
 ## Tasks
@@ -56,6 +57,13 @@ Errors always look like `{ "error": "message" }`.
 | GET | `/tasks/:id/comments` | – | Oldest first, includes `author_name` |
 | POST | `/tasks/:id/comments` | `{body}` | |
 | DELETE | `/comments/:id` | – | Author only |
+
+## Activity
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/boards/:id/activity?limit=50` | Newest first (max 200). Each item: `{id, action, message, user_id, user_name, created_at}` |
+
+Recorded actions: `task.created`, `task.updated` (lists changed fields), `task.moved`, `task.reordered`, `task.deleted`, `column.added`, `column.renamed`, `column.moved`, `column.deleted`, `comment.added`. Member changes are not logged.
 
 ## Health
 `GET /health` → `{ok: true, service: "task-board-api"}`

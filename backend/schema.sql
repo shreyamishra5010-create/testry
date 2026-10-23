@@ -62,3 +62,13 @@ CREATE INDEX IF NOT EXISTS idx_tasks_column ON tasks(column_id, position);
 CREATE INDEX IF NOT EXISTS idx_tasks_board ON tasks(board_id);
 CREATE INDEX IF NOT EXISTS idx_comments_task ON comments(task_id);
 CREATE INDEX IF NOT EXISTS idx_members_user ON board_members(user_id);
+
+CREATE TABLE IF NOT EXISTS activity (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  board_id INTEGER NOT NULL REFERENCES boards(id) ON DELETE CASCADE,
+  user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  action TEXT NOT NULL,
+  message TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_activity_board ON activity(board_id, created_at);

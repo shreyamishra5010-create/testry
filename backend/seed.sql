@@ -28,3 +28,10 @@ INSERT INTO comments (task_id, user_id, body, created_at) VALUES
   (1, 2, 'I pulled the funnel numbers, step 3 loses 40% of new users.', '2026-06-02T10:00:00.000Z'),
   (1, 1, 'Great, let''s start there. I will share fixes by Friday.', '2026-06-02T10:30:00.000Z'),
   (5, 2, 'Reproduced on iOS 19, looking into it.', '2026-06-03T14:00:00.000Z');
+
+INSERT INTO activity (board_id, user_id, action, message, created_at) VALUES
+  (1, 1, 'task.created', 'created "Audit onboarding flow" in To Do', '2026-06-01T09:20:00.000Z'),
+  (1, 2, 'task.created', 'created "Fix checkout validation" in In Progress', '2026-06-01T09:24:00.000Z'),
+  (1, 2, 'comment.added', 'commented on "Audit onboarding flow"', '2026-06-02T10:00:00.000Z'),
+  (1, 1, 'comment.added', 'commented on "Audit onboarding flow"', '2026-06-02T10:30:00.000Z'),
+  (1, 2, 'task.moved', 'moved "QA regression pass" from In Progress to Done', '2026-06-03T16:00:00.000Z');

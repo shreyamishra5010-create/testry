@@ -14,11 +14,12 @@ A simplified Trello/Jira-style Kanban tool. Teams create boards, organize work i
 - Register / sign in / sign out (JWT, 7-day expiry, bcrypt hashes)
 - Boards: create (auto-adds To Do / In Progress / Done), rename, edit description, delete (owner only)
 - Members: owner invites registered users by email and removes them; non-members get `403`
-- Columns: add, rename, delete. **Deleting a column deletes all its tasks** (and their comments)
+- Columns: add, rename, reorder (drag the column header, or Move left/right in column settings), delete. **Deleting a column deletes all its tasks** (and their comments)
 - Tasks: title, description, priority (low/medium/high), due date (overdue shown in red), assignee (board members only)
 - Drag & drop between and within columns, saved instantly (optimistic UI, then server sync)
 - Keyboard/accessible move: open a task, change **Column (move task)** and save
 - Comments on tasks; you can delete only your own
+- Activity feed: side panel (Activity button) showing who created, edited, moved, or deleted tasks, changed columns, or commented
 - Search by keyword + filter by priority and assignee (combinable, with Reset)
 
 ## Running locally

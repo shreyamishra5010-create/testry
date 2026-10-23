@@ -6,3 +6,24 @@
 .task-meta button small{font-size:10px}
 .board-settings{margin-left:10px}
 .error-title{font-size:30px;letter-spacing:-.8px;margin:0 0 12px}
+.column-head[draggable]{cursor:grab}
+.column-grip{color:#a5adba;margin-right:-4px}
+.column.column-dragging{opacity:.5}
+.column-move-row{display:flex;align-items:center;justify-content:space-between;margin-top:16px;gap:8px}
+.column-move-row .ghost{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--line);border-radius:4px}
+.column-move-row .ghost:disabled{opacity:.4;cursor:not-allowed}
+.activity-button{display:inline-flex;align-items:center;gap:6px;margin-left:14px;border:1px solid var(--line);border-radius:6px;color:var(--ink);font-weight:600;font-size:13px}
+.activity-button:hover{border-color:var(--blue);color:var(--blue)}
+.activity-scrim{position:fixed;inset:0;background:#172b4d33;z-index:25;animation:fade .2s ease}
+.activity-panel{position:fixed;top:0;right:0;bottom:0;width:min(400px,100%);background:#fff;z-index:30;box-shadow:-20px 0 50px #172b4d26;padding:28px 26px;overflow-y:auto;animation:slidein .25s ease-out}
+.activity-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:22px}
+.activity-head h2{margin:0;font-size:24px;letter-spacing:-.6px}
+.activity-head .eyebrow{margin-bottom:6px}
+.activity-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.activity-list li{display:flex;gap:12px;padding:14px 0;border-bottom:1px solid #f0f1f4;position:relative}
+.activity-list li .avatar{flex-shrink:0}
+.activity-list p{margin:0 0 5px;font-size:13px;line-height:1.45;color:var(--muted)}
+.activity-list p b{color:var(--ink)}
+.activity-list small{display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#8993a5}
+@keyframes slidein{from{transform:translateX(100%)}to{transform:translateX(0)}}
+@keyframes fade{from{opacity:0}to{opacity:1}}
