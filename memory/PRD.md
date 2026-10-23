@@ -26,5 +26,7 @@ Node.js/Express + SQLite · email/password · deleting a column deletes its task
 - 2026-06: Escape closes modals and the panel; edit plus invalid column is now validated before saving
 - Testing: iteration_3 found 3 minor backend edge cases and an Escape-key UI gap, all fixed. The full backend test suite (43 tests) then passed. The UI fixes were checked by a build and code review only, with no browser re-run
 
+- 2026-06: Touch dragging (hooks/useTouchDrag.js): press and hold (350ms) on cards or column headers, floating ghost, edge auto-scroll, swipe and tap still work normally, HTML5 drag disabled on coarse pointers. iteration_4: 8/8 passed
+
 ## Backlog
-- P2: Touch drag on mobile, member avatars with colors, due-soon highlights, 100+ task performance check
+- P2: Drop-position indicator line while dragging, member avatars with colors, due-soon highlights, 100+ task performance check

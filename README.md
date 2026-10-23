@@ -17,6 +17,7 @@ A simplified Trello/Jira-style Kanban tool. Teams create boards, organize work i
 - Columns: add, rename, reorder (drag the column header, or Move left/right in column settings), delete. **Deleting a column deletes all its tasks** (and their comments)
 - Tasks: title, description, priority (low/medium/high), due date (overdue shown in red), assignee (board members only)
 - Drag & drop between and within columns, saved instantly (optimistic UI, then server sync)
+- Touch screens: press and hold a card or column header (~⅓ s) to drag it; a floating copy follows your finger, the board auto-scrolls near the edges, and quick swipes still scroll normally
 - Keyboard/accessible move: open a task, change **Column (move task)** and save
 - Comments on tasks; you can delete only your own
 - Activity feed: side panel (Activity button) showing who created, edited, moved, or deleted tasks, changed columns, or commented
