@@ -1,12 +1,15 @@
 import { Plus, MoreHorizontal, GripVertical } from "lucide-react";
 import { TaskCard } from "./TaskCard";
+import { isTouchDevice } from "@/hooks/useTouchDrag";
+
+const TOUCH = isTouchDevice();
 
 const half = (e, axis) => {
   const r = e.currentTarget.getBoundingClientRect();
   return axis === "x" ? e.clientX > r.left + r.width / 2 : e.clientY > r.top + r.height / 2;
 };
 
-export const BoardColumn = ({ col, visible, drag, colDrag, onDropAt, onColumnDrop, setDrag, setColDrag, setModal, deleteTask }) => {
+export const BoardColumn = ({ col, visible, drag, colDrag, onDropAt, onColumnDrop, touchStart, setDrag, setColDrag, setModal, deleteTask }) => {
   const shown = col.tasks.filter(visible);
   const siblings = () => col.tasks.filter((t) => t.id !== drag?.id);
   const dropOn = (target, after) => {
@@ -21,8 +24,9 @@ export const BoardColumn = ({ col, visible, drag, colDrag, onDropAt, onColumnDro
   };
   const cls = `column${drag ? " drop-ready" : ""}${colDrag?.id === col.id ? " column-dragging" : ""}`;
   return (
-    <section className={cls} data-testid={`column-${col.id}`} onDragOver={(e) => e.preventDefault()} onDrop={onDrop}>
-      <div className="column-head" draggable data-testid={`column-drag-${col.id}`}
+    <section className={cls} data-testid={`column-${col.id}`} data-column-id={col.id} onDragOver={(e) => e.preventDefault()} onDrop={onDrop}>
+      <div className="column-head" draggable={!TOUCH} data-testid={`column-drag-${col.id}`}
+        onTouchStart={(e) => touchStart(e, { kind: "column", data: col }, e.currentTarget.closest(".column"))}
         onDragStart={(e) => { e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", `column-${col.id}`); setColDrag(col); }}
         onDragEnd={() => setColDrag(null)}>
         <div><GripVertical size={14} className="column-grip" /><span className="column-dot" style={{ background: col.color }} /><h2 data-testid={`column-name-${col.id}`}>{col.name}</h2><small data-testid={`column-count-${col.id}`}>{shown.length}</small></div>
@@ -30,7 +34,8 @@ export const BoardColumn = ({ col, visible, drag, colDrag, onDropAt, onColumnDro
       </div>
       <div className="task-list">
         {shown.map((t) => (
-          <TaskCard key={t.id} task={t} dragging={drag?.id === t.id}
+          <TaskCard key={t.id} task={t} dragging={drag?.id === t.id} draggable={!TOUCH}
+            onTouchStart={(e) => touchStart(e, { kind: "task", data: t }, e.currentTarget)}
             onDragStart={(e) => { e.stopPropagation(); e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", String(t.id)); setDrag(t); }}
             onDragEnd={() => setDrag(null)}
             onDropHere={(after) => dropOn(t, after)}

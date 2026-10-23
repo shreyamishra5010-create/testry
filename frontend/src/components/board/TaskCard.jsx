@@ -3,12 +3,14 @@ import { initials } from "@/lib/api";
 
 const shortDate = (d) => new Date(`${d}T00:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 
-export const TaskCard = ({ task, dragging, onEdit, onDelete, onComment, onDragStart, onDragEnd, onDropHere }) => {
+export const TaskCard = ({ task, dragging, draggable, onTouchStart, onEdit, onDelete, onComment, onDragStart, onDragEnd, onDropHere }) => {
   const overdue = task.due_date && new Date(`${task.due_date}T23:59:59`) < new Date();
   return (
     <article
       className={`task-card priority-${task.priority}${dragging ? " dragging" : ""}`}
-      draggable
+      draggable={draggable}
+      data-task-id={task.id}
+      onTouchStart={onTouchStart}
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
       onDragOver={(e) => e.preventDefault()}

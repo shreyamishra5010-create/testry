@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useTouchDrag } from "@/hooks/useTouchDrag";
 import { useNavigate, useParams } from "react-router-dom";
 import { Plus, Settings, History } from "lucide-react";
 import { toast } from "sonner";
@@ -27,6 +28,14 @@ export default function BoardPage({ user, onLogout }) {
   const [version, setVersion] = useState(0);
   const load = useCallback(() => api(`/boards/${id}`).then((b) => { setBoard(b); setVersion((v) => v + 1); }).catch((e) => setError(e.message)), [id]);
   useEffect(() => { load(); }, [load]);
+  const columnsRef = useRef(null);
+  const touchDrop = useRef(() => {});
+  const touchStart = useTouchDrag({
+    onBegin: (item) => (item.kind === "task" ? setDrag(item.data) : setColDrag(item.data)),
+    onEnd: () => { setDrag(null); setColDrag(null); },
+    onDrop: (...args) => touchDrop.current(...args),
+    scrollEl: columnsRef,
+  });
 
   const attempt = async (fn) => { try { await fn(); } catch (e) { toast.error(e.message); } finally { load(); } };
   const close = () => setModal(null);
@@ -38,9 +47,7 @@ export default function BoardPage({ user, onLogout }) {
   );
   if (!board) return <div className="loading">Loading board…</div>;
 
-  const onDropAt = (columnId, index) => {
-    if (!drag) return;
-    const task = drag;
+  const dropTask = (task, columnId, index) => {
     setDrag(null);
     setBoard((b) => ({ ...b, columns: reorder(b.columns, task, columnId, index) }));
     attempt(() => api(`/tasks/${task.id}/move`, { method: "PATCH", body: JSON.stringify({ column_id: columnId, position: index }) }));
@@ -53,11 +60,25 @@ export default function BoardPage({ user, onLogout }) {
     });
     attempt(() => api(`/columns/${column.id}/move`, { method: "PATCH", body: JSON.stringify({ position: index }) }));
   };
-  const onColumnDrop = (target, after) => {
-    const column = colDrag;
+  const dropColumn = (column, targetId, after) => {
     setColDrag(null);
-    if (!column || column.id === target.id) return;
-    moveColumn(column, board.columns.filter((c) => c.id !== column.id).findIndex((c) => c.id === target.id) + (after ? 1 : 0));
+    if (column.id === targetId) return;
+    moveColumn(column, board.columns.filter((c) => c.id !== column.id).findIndex((c) => c.id === targetId) + (after ? 1 : 0));
+  };
+  const onDropAt = (columnId, index) => drag && dropTask(drag, columnId, index);
+  const onColumnDrop = (target, after) => colDrag && dropColumn(colDrag, target.id, after);
+  touchDrop.current = (item, x, y) => {
+    const el = document.elementFromPoint(x, y);
+    const colEl = el?.closest("[data-column-id]");
+    if (!colEl) return;
+    const colId = Number(colEl.dataset.columnId);
+    const half = (node, horizontal) => { const r = node.getBoundingClientRect(); return horizontal ? x > r.left + r.width / 2 : y > r.top + r.height / 2; };
+    if (item.kind === "column") return dropColumn(item.data, colId, half(colEl, true));
+    const siblings = board.columns.find((c) => c.id === colId).tasks.filter((t) => t.id !== item.data.id);
+    const card = el.closest("[data-task-id]");
+    if (!card) return dropTask(item.data, colId, siblings.length);
+    const targetId = Number(card.dataset.taskId);
+    if (targetId !== item.data.id) dropTask(item.data, colId, siblings.findIndex((t) => t.id === targetId) + (half(card) ? 1 : 0));
   };
   const saveTask = (d) => attempt(async () => {
     if (modal.task) await api(`/tasks/${modal.task.id}`, { method: "PATCH", body: JSON.stringify(d) });
@@ -84,8 +105,8 @@ export default function BoardPage({ user, onLogout }) {
           </div>
         </div>
         <BoardToolbar filters={filters} setFilters={setFilters} members={board.members} />
-        <div className="columns" data-testid="kanban-board">
-          {board.columns.map((col) => <BoardColumn key={col.id} col={col} visible={matches(filters)} drag={drag} setDrag={setDrag} colDrag={colDrag} setColDrag={setColDrag} onDropAt={onDropAt} onColumnDrop={onColumnDrop} setModal={setModal} deleteTask={deleteTask} />)}
+        <div className="columns" data-testid="kanban-board" ref={columnsRef}>
+          {board.columns.map((col) => <BoardColumn key={col.id} col={col} visible={matches(filters)} drag={drag} setDrag={setDrag} colDrag={colDrag} setColDrag={setColDrag} onDropAt={onDropAt} onColumnDrop={onColumnDrop} touchStart={touchStart} setModal={setModal} deleteTask={deleteTask} />)}
           <button className="add-column" data-testid="add-column-button" onClick={() => setModal({ type: "add-column" })}><Plus size={18} /> Add column</button>
         </div>
       </main>

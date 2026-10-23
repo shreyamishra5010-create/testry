@@ -27,4 +27,5 @@
 .activity-list small{display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#8993a5}
 @keyframes slidein{from{transform:translateX(100%)}to{transform:translateX(0)}}
 @keyframes fade{from{opacity:0}to{opacity:1}}
-@media(hover:none){.column-grip{display:none}}
+.touch-ghost{position:fixed!important;z-index:60;pointer-events:none;opacity:.94;box-shadow:0 18px 40px #091e4240!important;margin:0!important;max-height:60vh;overflow:hidden;animation:none!important}
+@media(pointer:coarse){.task-card,.column-head{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}}
