@@ -1,0 +1,68 @@
+{
+  "info": {
+    "name": "Northstar Task Board API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base", "value": "http://localhost:8002/api" },
+    { "key": "token", "value": "" },
+    { "key": "boardId", "value": "1" },
+    { "key": "columnId", "value": "1" },
+    { "key": "taskId", "value": "1" }
+  ],
+  "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login (saves token)",
+          "event": [{ "listen": "test", "script": { "exec": ["pm.collectionVariables.set('token', pm.response.json().token);"] } }],
+          "request": { "auth": { "type": "noauth" }, "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "url": "{{base}}/auth/login", "body": { "mode": "raw", "raw": "{\"email\":\"demo@taskboard.local\",\"password\":\"demo1234\"}" } }
+        },
+        {
+          "name": "Register",
+          "request": { "auth": { "type": "noauth" }, "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "url": "{{base}}/auth/register", "body": { "mode": "raw", "raw": "{\"name\":\"Sam Rivera\",\"email\":\"sam@example.com\",\"password\":\"password123\"}" } }
+        },
+        { "name": "Me", "request": { "method": "GET", "url": "{{base}}/me" } }
+      ]
+    },
+    {
+      "name": "Boards",
+      "item": [
+        { "name": "List boards", "request": { "method": "GET", "url": "{{base}}/boards" } },
+        { "name": "Create board", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "url": "{{base}}/boards", "body": { "mode": "raw", "raw": "{\"name\":\"Website refresh\",\"description\":\"Q3 redesign\"}" } } },
+        { "name": "Get board", "request": { "method": "GET", "url": "{{base}}/boards/{{boardId}}" } },
+        { "name": "Update board", "request": { "method": "PATCH", "header": [{ "key": "Content-Type", "value": "application/json" }], "url": "{{base}}/boards/{{boardId}}", "body": { "mode": "raw", "raw": "{\"name\":\"Product Launch v2\"}" } } },
+        { "name": "Delete board", "request": { "method": "DELETE", "url": "{{base}}/boards/{{boardId}}" } },
+        { "name": "Invite member", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "url": "{{base}}/boards/{{boardId}}/members", "body": { "mode": "raw", "raw": "{\"email\":\"jordan@taskboard.local\"}" } } },
+        { "name": "Remove member", "request": { "method": "DELETE", "url": "{{base}}/boards/{{boardId}}/members/2" } }
+      ]
+    },
+    {
+      "name": "Columns",
+      "item": [
+        { "name": "Add column", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "url": "{{base}}/boards/{{boardId}}/columns", "body": { "mode": "raw", "raw": "{\"name\":\"Review\"}" } } },
+        { "name": "Rename column", "request": { "method": "PATCH", "header": [{ "key": "Content-Type", "value": "application/json" }], "url": "{{base}}/columns/{{columnId}}", "body": { "mode": "raw", "raw": "{\"name\":\"Backlog\"}" } } },
+        { "name": "Delete column (and its tasks)", "request": { "method": "DELETE", "url": "{{base}}/columns/{{columnId}}" } }
+      ]
+    },
+    {
+      "name": "Tasks",
+      "item": [
+        { "name": "Create task", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "url": "{{base}}/boards/{{boardId}}/tasks", "body": { "mode": "raw", "raw": "{\"column_id\":1,\"title\":\"Write launch email\",\"priority\":\"high\",\"due_date\":\"2026-07-15\",\"assignee_id\":2}" } } },
+        { "name": "Update task", "request": { "method": "PATCH", "header": [{ "key": "Content-Type", "value": "application/json" }], "url": "{{base}}/tasks/{{taskId}}", "body": { "mode": "raw", "raw": "{\"priority\":\"low\"}" } } },
+        { "name": "Move task", "request": { "method": "PATCH", "header": [{ "key": "Content-Type", "value": "application/json" }], "url": "{{base}}/tasks/{{taskId}}/move", "body": { "mode": "raw", "raw": "{\"column_id\":2,\"position\":0}" } } },
+        { "name": "Delete task", "request": { "method": "DELETE", "url": "{{base}}/tasks/{{taskId}}" } }
+      ]
+    },
+    {
+      "name": "Comments",
+      "item": [
+        { "name": "List comments", "request": { "method": "GET", "url": "{{base}}/tasks/{{taskId}}/comments" } },
+        { "name": "Add comment", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "url": "{{base}}/tasks/{{taskId}}/comments", "body": { "mode": "raw", "raw": "{\"body\":\"Looks good to me\"}" } } },
+        { "name": "Delete own comment", "request": { "method": "DELETE", "url": "{{base}}/comments/1" } }
+      ]
+    }
+  ]
+}
