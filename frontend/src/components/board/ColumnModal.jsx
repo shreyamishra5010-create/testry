@@ -20,7 +20,7 @@ export const ColumnModal = ({ column, index, total, onMove, close, reload }) => 
   return (
     <Modal title="Column settings" close={close}>
       <form className="modal-form" onSubmit={save}>
-        <label>Column name<input data-testid="column-name-input" value={name} onChange={(e) => setName(e.target.value)} required /></label>
+        <label>Column name<input data-testid="column-settings-name-input" value={name} onChange={(e) => setName(e.target.value)} required /></label>
         <button className="primary wide" data-testid="column-save-button">Save column</button>
       </form>
       <div className="column-move-row">

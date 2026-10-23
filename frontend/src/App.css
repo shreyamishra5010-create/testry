@@ -27,3 +27,4 @@
 .activity-list small{display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#8993a5}
 @keyframes slidein{from{transform:translateX(100%)}to{transform:translateX(0)}}
 @keyframes fade{from{opacity:0}to{opacity:1}}
+@media(hover:none){.column-grip{display:none}}

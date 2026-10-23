@@ -21,6 +21,10 @@ Node.js/Express + SQLite · email/password · deleting a column deletes its task
 - 2026-06: README, schema.sql, seed.sql, ER diagram, API reference, Postman collection, test credentials
 - Testing: iteration_2: backend 27/27; frontend all flows pass; follow-up bugs fixed and verified
 
+- 2026-06: Column reordering: drag a column by its header (left/right half), or use Move left/right in column settings; PATCH /api/columns/:id/move with dense positions
+- 2026-06: Activity feed: `activity` table, a side panel opened by the Activity button, GET /api/boards/:id/activity. Logs task create/edit (changed fields only)/move/reorder/delete, column add/rename/move/delete, and comment added. Member changes are not logged, as the user chose
+- 2026-06: Escape closes modals and the panel; edit plus invalid column is now validated before saving
+- Testing: iteration_3 found 3 minor backend edge cases and an Escape-key UI gap, all fixed. The full backend test suite (43 tests) then passed. The UI fixes were checked by a build and code review only, with no browser re-run
+
 ## Backlog
-- P1: Column reordering (drag columns)
-- P2: Activity log per board, member avatars with colors, mobile touch drag, 100+ task performance check
+- P2: Touch drag on mobile, member avatars with colors, due-soon highlights, 100+ task performance check

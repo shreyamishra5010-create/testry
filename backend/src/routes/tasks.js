@@ -48,14 +48,15 @@ router.patch('/:id', h(async (req, res) => {
   validFields(b);
   const pick = (k) => (b[k] === undefined ? t[k] : b[k]);
   const assignee = b.assignee_id === undefined ? t.assignee_id : await validAssignee(b.assignee_id, t.board_id);
+  const moving = b.column_id !== undefined && Number(b.column_id) !== t.column_id;
+  const col = moving ? await columnOnBoard(b.column_id, t.board_id) : null;
   await run('UPDATE tasks SET title=?,description=?,priority=?,due_date=?,assignee_id=?,updated_at=? WHERE id=?',
     [String(pick('title')).trim(), pick('description') || '', pick('priority'), pick('due_date') || null, assignee, now(), t.id]);
   const title = String(pick('title')).trim();
   const after = { ...b, assignee_id: assignee, title };
   const changed = Object.keys(EDITABLE).filter((k) => b[k] !== undefined && norm(after[k]) !== norm(t[k]));
   if (changed.length) await logActivity(t.board_id, req.user.id, 'task.updated', `updated ${changed.map((k) => EDITABLE[k]).join(', ')} on "${title}"`);
-  if (b.column_id !== undefined && Number(b.column_id) !== t.column_id) {
-    const col = await columnOnBoard(b.column_id, t.board_id);
+  if (moving) {
     await placeTask(t, col.id);
     await logActivity(t.board_id, req.user.id, 'task.moved', `moved "${title}" from ${await columnName(t.column_id)} to ${col.name}`);
   }

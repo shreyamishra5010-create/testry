@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { X, ListChecks, MessageSquare, Columns3, ArrowRightLeft, Trash2, Pencil } from "lucide-react";
 import { api, initials } from "@/lib/api";
+import { useEscape } from "@/components/Modal";
 
 const ICONS = { task: ListChecks, comment: MessageSquare, column: Columns3 };
 const iconFor = (action) => (action.endsWith("deleted") ? Trash2 : action.endsWith("moved") || action.endsWith("reordered") ? ArrowRightLeft : action.endsWith("updated") || action.endsWith("renamed") ? Pencil : ICONS[action.split(".")[0]] || ListChecks);
@@ -18,6 +19,7 @@ export const ActivityPanel = ({ boardId, version, close }) => {
   const [items, setItems] = useState(null);
   const load = useCallback(() => api(`/boards/${boardId}/activity`).then(setItems).catch(() => setItems([])), [boardId]);
   useEffect(() => { load(); }, [load, version]);
+  useEscape(close);
   return (
     <>
       <div className="activity-scrim" onClick={close} />

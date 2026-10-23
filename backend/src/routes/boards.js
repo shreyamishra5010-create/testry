@@ -71,7 +71,8 @@ router.post('/:id/columns', h(async (req, res) => {
 
 router.get('/:id/activity', h(async (req, res) => {
   await membership(req.params.id, req.user.id);
-  const limit = Math.min(Math.max(Number(req.query.limit) || 50, 1), 200);
+  const n = Number(req.query.limit);
+  const limit = Number.isFinite(n) && req.query.limit !== undefined ? Math.min(Math.max(Math.floor(n), 1), 200) : 50;
   res.json(await all(`SELECT a.id, a.action, a.message, a.created_at, a.user_id, COALESCE(u.name,'Former user') user_name
     FROM activity a LEFT JOIN users u ON u.id=a.user_id WHERE a.board_id=? ORDER BY a.created_at DESC, a.id DESC LIMIT ?`, [req.params.id, limit]));
 }));

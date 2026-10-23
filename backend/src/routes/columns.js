@@ -20,7 +20,8 @@ router.patch('/:id', h(async (req, res) => {
 router.patch('/:id/move', h(async (req, res) => {
   const c = await loadOr404('columns', req.params.id);
   await membership(c.board_id, req.user.id);
-  const index = Number(req.body.position);
+  const raw = req.body.position;
+  const index = typeof raw === 'number' || (typeof raw === 'string' && raw.trim() !== '') ? Number(raw) : NaN;
   if (!Number.isInteger(index)) return res.status(400).json({ error: 'Position must be a whole number.' });
   const ids = (await all('SELECT id FROM columns WHERE board_id=? AND id<>? ORDER BY position, id', [c.board_id, c.id])).map((r) => r.id);
   const at = Math.max(0, Math.min(index, ids.length));

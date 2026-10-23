@@ -1,0 +1,40 @@
+{
+  "summary": "Tested column reordering and the activity feed in the backend and the UI, plus a regression pass. Backend: 41 of 43 pytest cases pass (27 old ones plus 16 new ones in test_activity_columns.py). The 2 failures are minor edge cases. Column move: dense 0..n-1 positions, clamping high and low, persistence, no log when the position doesn't change, 400 for 'abc', 1.5, '1.2' and a missing position, 403 for non-members, 404 for unknown columns, 401 without a token. Activity: newest first, every field present, limit works and invalid values fall back to 50, 403 for non-members. Logging is correct for task create, edit (only changed fields; no log for a no-op edit, for an empty-vs-null due date, or for a string vs number assignee id), reorder within a column (and no log for the same position), move across columns via /move, move via PATCH column_id, delete, comment, and column add, rename (no log when unchanged), move and delete (message mentions '2 tasks'). Member invite and remove create no activity. UI (Playwright, 1920 and 390 widths): column DnD by header works, right half drops after and left half drops before, dropping a column on itself does nothing, dropping it onto a task card in another column reorders columns without moving tasks, and the order persists after reload. Task DnD still works: lower-half drop inserts after, cross-column top-half drop inserts before, self-drop does nothing (iteration_2 bug fixed), and dragging a task never reorders columns. The column modal's left/right buttons move the column immediately, are disabled at the ends, and the position text updates. The activity panel opens, lists items, shows new activity on reopen after create task / edit / comment / add, rename and delete column / delete task, and closes via the close button and the scrim. Regression checks passed: login, task create, comments count, search + reset filters, members modal, board settings (owner only; hidden for Jordan), and Jordan can move columns and see the activity.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "PATCH /api/columns/:id/move", "issue": "{position: null} is accepted as 0 because Number(null) === 0 passes Number.isInteger, so the column moves to the front. Same for '' and false. A missing position correctly returns 400. Fix: check typeof req.body.position === 'number' (or a non-empty integer string) before Number()."},
+      {"endpoint": "PATCH /api/tasks/:id (with an invalid column_id)", "issue": "The update is not atomic. Title and other fields are UPDATEd and a task.updated activity is logged before columnOnBoard(column_id) throws 400. The client gets an error but the edit is saved and logged. Fix: validate column_id with columnOnBoard before the UPDATE."},
+      {"endpoint": "GET /api/boards/:id/activity?limit=0", "issue": "limit=0 is treated as 50 (0 || 50) instead of being clamped to 1. Cosmetic."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Modal (column settings, etc.)", "issue": "Escape does not close the modal; only the X button or the backdrop does. The activity panel also has no Escape handling.", "selector": "[data-testid=modal-close-button]", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Board (mobile 390px)", "issues": ["Column DnD uses HTML5 drag and drop, which doesn't fire on touch devices. Mobile users can only reorder with the column modal's Move left/right buttons. That works, but the grip icon suggests dragging."]},
+      {"screen": "Testability", "issues": ["data-testid 'column-name-input' (ColumnModal) collides with the 'column-name-{id}' prefix pattern. A [data-testid^=column-name-] selector also matches the input while the modal is open. Consider renaming it to 'column-settings-name-input'."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_activity_columns.py", "/app/backend/tests/test_taskboard_api.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [
+    "Reject non-numeric positions (null, '', false) in PATCH /columns/:id/move with 400.",
+    "In PATCH /tasks/:id, validate column_id before writing the field update and the activity log, so a 400 leaves nothing changed.",
+    "Optional: add Escape-to-close for Modal and ActivityPanel; clamp limit=0 to 1; rename the column-name-input testid."
+  ],
+  "critical_code_review_comments": [
+    "columns.js move: Number(req.body.position) turns null and '' into 0, so the validation is weaker than the docs suggest.",
+    "tasks.js PATCH: validation (columnOnBoard) runs after the UPDATE and logActivity, so a failed request has side effects.",
+    "Column move logs only the moved column's new position. Columns shifted as a side effect are not logged, which is fine and matches the feature.",
+    "The activity panel scrim blocks the board, so 'refresh while open' only matters for actions made elsewhere (other users or tabs). There is no polling, so the panel refreshes only on reopen or a local load(). Acceptable for an MVP."
+  ],
+  "updated_files": ["/app/backend/tests/test_activity_columns.py (new)", "/app/backend/tests/test_taskboard_api.py (test_board_delete_cascade now expects 404 for a deleted board, since membership() checks existence first)"],
+  "success_rate": {"backend": "95% (41/43; 2 minor edge-case failures)", "frontend": "100% of requested flows"},
+  "test_credentials": "demo@taskboard.local / demo1234 (owner), jordan@taskboard.local / demo1234 (member) - both worked",
+  "seed_data_creation": "Board 1 was modified. Final column order is 3 Done, 1 To Do, 2 In Progress (Jordan moved To Do left). Tasks moved: 1 is below 2 in To Do, 3 is now at the top of In Progress. Many activity rows were added. TEST_UI task and column were created and then deleted. TEST_ boards from pytest were deleted. Main agent plans to reset the DB.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run: REACT_APP_BACKEND_URL=... pytest /app/backend/tests/ (pytest.ini uses xdist; use -n0 for serial runs). The board route is /board/:id (not /boards). Playwright drag_to with target_position works for both column halves and card halves. The 2 known failures in test_activity_columns.py are intentional checks for null position and a non-atomic PATCH."
+}

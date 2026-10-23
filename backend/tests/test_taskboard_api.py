@@ -238,4 +238,5 @@ def test_board_delete_cascade(demo, jordan):
     b = requests.post(f"{API}/boards", json={"name": "TEST_Del"}, headers=hdr(tok)).json()
     assert requests.delete(f"{API}/boards/{b['id']}", headers=hdr(jordan["token"])).status_code == 403
     assert requests.delete(f"{API}/boards/{b['id']}", headers=hdr(tok)).status_code == 200
-    assert requests.get(f"{API}/boards/{b['id']}", headers=hdr(tok)).status_code == 403
+    # membership() now checks existence first -> deleted board returns 404
+    assert requests.get(f"{API}/boards/{b['id']}", headers=hdr(tok)).status_code == 404

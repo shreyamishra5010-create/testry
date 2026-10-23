@@ -1,7 +1,15 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 
-export const Modal = ({ title, close, children }) => (
+export const useEscape = (fn) => useEffect(() => {
+  const onKey = (e) => e.key === "Escape" && fn();
+  window.addEventListener("keydown", onKey);
+  return () => window.removeEventListener("keydown", onKey);
+}, [fn]);
+
+export const Modal = ({ title, close, children }) => {
+  useEscape(close);
+  return (
   <div className="modal-backdrop" data-testid="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && close()}>
     <div className="modal" role="dialog" aria-label={title}>
       <div className="modal-head">
@@ -11,7 +19,8 @@ export const Modal = ({ title, close, children }) => (
       {children}
     </div>
   </div>
-);
+  );
+};
 
 export const SimpleModal = ({ title, close, onSave, placeholder, type = "text", initial = "" }) => {
   const [value, setValue] = useState(initial);
