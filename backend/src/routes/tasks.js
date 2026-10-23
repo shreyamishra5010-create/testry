@@ -20,6 +20,7 @@ async function validAssignee(assigneeId, boardId) {
 function validFields(body) {
   if (body.title !== undefined && !String(body.title).trim()) throw new HttpError(400, 'Task title is required.');
   if (body.priority !== undefined && !PRIORITIES.includes(body.priority)) throw new HttpError(400, 'Priority must be low, medium, or high.');
+  if (body.due_date && !/^\d{4}-\d{2}-\d{2}$/.test(body.due_date)) throw new HttpError(400, 'Due date must be YYYY-MM-DD.');
 }
 
 const taskRow = (id) => get('SELECT t.*, u.name assignee_name FROM tasks t LEFT JOIN users u ON u.id=t.assignee_id WHERE t.id=?', [id]);

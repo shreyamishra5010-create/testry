@@ -1,53 +1,26 @@
-# Northstar Task Board PRD
+# Northstar Task Board — PRD
 
-## Original problem statement
-Build a simplified Kanban-style task management system inspired by Trello/Jira with email/password authentication, boards, default columns, task CRUD, drag-and-drop movement, members, comments, search/filtering, sample data, API documentation, and testing.
+## Original problem
+Simplified Trello/Jira Kanban tool: email/password JWT auth, boards (default To Do/In Progress/Done) with owner/member access, columns CRUD, tasks (priority, due date, assignee), drag & drop with persisted positions + accessible fallback, comments, search/filters, bright Trello-like UI with sample data, and docs (README, schema/seed SQL, ER diagram, API docs/Postman).
 
-## User decisions
-- Node.js/Express backend with SQLite database
-- Email/password login with JWT
-- Column deletion offers moving tasks to To Do or deleting tasks
-- Clean, bright Trello-like visual direction
-- Seed sample board and tasks
+## User choices
+Node.js/Express + SQLite · email/password · deleting a column deletes its tasks · bright Trello-like look · sample data included.
 
-## Architecture decisions
-- Express API on port 8001 with SQLite foreign keys and parameterized queries
-- bcryptjs hashes passwords; jsonwebtoken protects API routes
-- React frontend uses the configured `REACT_APP_BACKEND_URL`
-- Integer task positions are persisted and updated during moves
-- Board membership is checked server-side for all board/task/comment/member operations
+## Architecture
+- backend/server.js (Express) + src/{db,auth,access}.js + src/routes/*; schema.sql/seed.sql loaded on start
+- backend/server.py = platform launcher (spawns Node on API_PORT, proxies /api from 8001)
+- frontend: App.js routes; pages/{Auth,Dashboard,Board}Page; components/board/*; lib/api.js
+- docs/: ER_DIAGRAM.md, API.md, postman_collection.json
 
-## Personas
-- Individual planner who needs a lightweight personal board
-- Small product team coordinating work across stages
-- Board owner managing collaborators and task visibility
+## Implemented
+- Session 1: MVP (auth, boards, columns, tasks, comments, filters, UI, seed)
+- 2026-06: Modular refactor (frontend + backend) with the same look; durable startup through supervisor
+- 2026-06: Dense position reordering (within and across columns), card top/bottom-half drop, self-drop fix, optimistic UI
+- 2026-06: Assignee field + filter, members modal (invite/remove), board settings (rename/delete), column delete cascades tasks
+- 2026-06: Validation (email, password, priority, due date, assignee membership, same-board column), 404 vs 403, own-comment delete by user id
+- 2026-06: README, schema.sql, seed.sql, ER diagram, API reference, Postman collection, test credentials
+- Testing: iteration_2: backend 27/27; frontend all flows pass; follow-up bugs fixed and verified
 
-## Core requirements (static)
-- Auth: register, login, logout, protected API access
-- Boards: list, create, open, delete/rename API support, default columns
-- Columns: add, rename, delete with task policy
-- Tasks: create, edit, delete, priorities, due dates, drag/drop movement
-- Collaboration: members, comments, own-comment deletion
-- Discovery: keyword search, priority filter, reset
-- Documentation and seeded demo account
-
-## Implemented — 2026-10-23
-- Replaced the starter API with Node.js/Express + SQLite schema and automatic seed data
-- Added JWT email/password auth, bcrypt password hashing, board authorization, and REST endpoints
-- Built bright Northstar dashboard and responsive Kanban workspace with test IDs
-- Added board creation, task modal, task editing/deleting, filters, priority labels, due dates, drag/drop, comments, members, and column policy controls
-- Added README, schema/seed notes, and demo credentials
-- Verified preview login, dashboard, board rendering, protected 401/200 API behavior, editing, column modal, comments, and responsive layout
-
-## Prioritized backlog
-- P0: Keep core board/task/member/comment flows stable
-- P1: Add explicit board rename/delete controls to the dashboard UI
-- P1: Add assignee picker UI and member removal controls
-- P2: Add column reordering and richer activity history
-- P2: Add Postman collection and ER diagram asset
-
-## Next tasks
-1. Add assignee selection and member management panel.
-2. Add board settings for rename/delete from the dashboard.
-3. Add column reordering with persistent positions.
-4. Add API collection and visual ER diagram documentation.
+## Backlog
+- P1: Column reordering (drag columns)
+- P2: Activity log per board, member avatars with colors, mobile touch drag, 100+ task performance check

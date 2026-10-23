@@ -7,6 +7,7 @@ class HttpError extends Error {
 }
 
 async function membership(boardId, userId) {
+  if (!(await get('SELECT id FROM boards WHERE id=?', [boardId]))) throw new HttpError(404, 'Board not found.');
   const board = await get('SELECT b.*, bm.role FROM boards b JOIN board_members bm ON bm.board_id=b.id WHERE b.id=? AND bm.user_id=?', [boardId, userId]);
   if (!board) throw new HttpError(403, 'You do not have access to this board.');
   return board;

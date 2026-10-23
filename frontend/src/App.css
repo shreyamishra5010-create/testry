@@ -5,3 +5,4 @@
 .task-meta button{display:inline-flex;align-items:center;gap:3px}
 .task-meta button small{font-size:10px}
 .board-settings{margin-left:10px}
+.error-title{font-size:30px;letter-spacing:-.8px;margin:0 0 12px}

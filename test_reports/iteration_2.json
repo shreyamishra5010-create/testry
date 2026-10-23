@@ -1,0 +1,40 @@
+{
+  "summary": "Full retest after refactor. Backend: 27/27 pytest cases pass (auth validation/409/401, unauth 401, boards CRUD + default columns, owner-only PATCH/DELETE, members invite/remove/404/403/owner-not-removable, tasks create/edit validation incl. priority + non-member assignee 400, move within/across columns with dense positions, cross-board column 400, PATCH column_id -> bottom, column CRUD with deleted_tasks, comments add/403/404, board cascade). Frontend: all requested flows verified via Playwright: auth errors, register, logout (token removed), session persists on reload, dashboard stats, create board -> 3 default columns, DnD (drop on card inserts before it, drop on column appends, cross-column, persists after reload), accessible column-select fallback (moves to bottom, modal closes), task edit modal now closes (iteration_1 bug fixed), task create with assignee/priority/due date, search/priority/assignee (Everyone/Unassigned/member)/Reset filters, comments (count on card, delete only on own), members modal (invite, 404 toast, remove, jordan sees owner note only), stranger gets board-error, column modal (iteration_1 bug fixed: rename, delete with confirm removes column + tasks), task delete confirm, board settings rename/description persist + delete navigates to dashboard. One real bug found: dropping a card on itself moves it to the top of its column.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "PATCH /api/tasks/:id, POST /api/boards/:id/tasks", "issue": "due_date format isn't validated (any string is stored), even though the docs say YYYY-MM-DD."},
+      {"endpoint": "GET /api/boards/:id (deleted/nonexistent board)", "issue": "Returns 403 'no access' instead of 404, because membership() runs before the existence check. Not wrong per the docs, but it can mislead users."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "BoardColumn/TaskCard drag & drop", "issue": "Dropping a dragged card onto itself (or a tiny drag that ends on the same card) moves it to position 0 and the server keeps that position. Reproduced: In Progress [5,1,4,6] became [5 moved from index 2 to 0]. RCA: indexOf(t) filters out the dragged task, then findIndex returns -1 for the dragged card itself. The client reorder() then slices (0,-1), and the server clamps -1 to 0. Fix: in onDropHere, return early when t.id === drag.id, or make onDropAt ignore index < 0.", "selector": "[data-testid^=task-card-]", "priority": "MEDIUM"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Dashboard", "issues": ["'1 boards' is not pluralized correctly", "The greeting always says 'Good morning' whatever the time of day", "The MoreHorizontal icon on board tiles looks like a menu but does nothing (it is inside the tile button)", "'Open tasks' stat counts Done tasks too"]},
+      {"screen": "Board error (no access)", "issues": ["The page has no header or logout and the message is left-aligned in a narrow block. It works but looks bare."]},
+      {"screen": "Board DnD UX", "issues": ["Drops use insert-before semantics, so moving a card down by one slot only works by dropping it on the card two below or at the end of the column. Consider using the top/bottom half of the hovered card."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_taskboard_api.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [
+    "Fix the self-drop bug in BoardColumn.jsx onDropHere (skip when the target is the dragged task / index < 0).",
+    "Optional: validate due_date format server-side; pluralize the board count; make the greeting match the time of day or use a neutral one; remove the tile menu icon or make it work."
+  ],
+  "critical_code_review_comments": [
+    "BoardColumn indexOf() returns -1 for the dragged card itself, which causes the self-drop bug above.",
+    "TaskModal sends the whole task object (assignee_name, comment_count, created_at...) in PATCH. The server ignores the extra fields, but sending only the editable fields would be cleaner.",
+    "The comment DELETE route checks authorship only, not board membership, so a removed member can still delete their old comments. Acceptable, but worth knowing.",
+    "server.py is an httpx proxy to Node on API_PORT. Every request adds an extra hop, and the proxy doesn't restart Node if it crashes."
+  ],
+  "updated_files": ["/app/backend/tests/test_taskboard_api.py"],
+  "success_rate": {"backend": "100% (27/27)", "frontend": "~97% (one DnD edge-case bug)"},
+  "test_credentials": "demo@taskboard.local / demo1234 (owner), jordan@taskboard.local / demo1234 (member) - both worked",
+  "seed_data_creation": "Board 1 changed: tasks reordered and moved across columns, task 2 renamed 'Draft pricing FAQ v2' (high, Alex), task 14 'TEST_UI new task' added to Done, one demo comment on task 14. Jordan was removed and then re-added to board 1 by API, which reset the assignee of tasks 4, 6 and 14 back to Jordan. Registered users: test_ui_769305@example.com/password123 ('Dup') plus test_*@example.com users from pytest. TEST_ boards created by tests were deleted. Main agent plans to reset the seed.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run `REACT_APP_BACKEND_URL=... pytest /app/backend/tests/test_taskboard_api.py`. It creates and deletes its own TEST_Board and registers random test_* users. Playwright HTML5 drag_to works with this app's native DnD. Careful with members-modal remove buttons: rows are sorted by role then name, so the last row may be Jordan.",
+  "rca of the issue": "Self-drop: BoardColumn.indexOf = col.tasks.filter(t=>t.id!==drag.id).findIndex(t=>t.id===target.id) returns -1 when target === drag. onDropAt(col.id,-1) then sends position -1, and placeTask clamps it to Math.max(0,...) = 0, so the card goes to the top. Repro: drag any non-first card and release it on itself. Mitigation: guard with `if (t.id === drag?.id) return;` in onDropHere (and/or ignore index < 0 in onDropAt)."
+}

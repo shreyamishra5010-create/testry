@@ -27,7 +27,11 @@ export default function BoardPage({ user, onLogout }) {
   const attempt = async (fn) => { try { await fn(); } catch (e) { toast.error(e.message); } finally { load(); } };
   const close = () => setModal(null);
 
-  if (error) return <div className="loading" data-testid="board-error"><div><p>{error}</p><button className="primary" onClick={() => nav("/")}>Back to boards</button></div></div>;
+  if (error) return (
+    <div className="app-shell"><Header user={user} onLogout={onLogout} />
+      <main className="dashboard" data-testid="board-error"><p className="eyebrow">CAN'T OPEN BOARD</p><h1 className="error-title">{error}</h1><p className="muted">Ask the board owner to invite you, or head back to your boards.</p><button className="primary" data-testid="board-error-back" onClick={() => nav("/")}>← Back to boards</button></main>
+    </div>
+  );
   if (!board) return <div className="loading">Loading board…</div>;
 
   const onDropAt = (columnId, index) => {

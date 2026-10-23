@@ -8,7 +8,7 @@ Errors always look like `{ "error": "message" }`.
 | 400 | Validation failed |
 | 401 | Missing / invalid token, or wrong login |
 | 403 | Not a board member, or owner-only action |
-| 404 | Resource or user not found |
+| 404 | Board, column, task, comment, or invited user not found |
 | 409 | Email already registered |
 
 ## Auth
@@ -48,7 +48,7 @@ Errors always look like `{ "error": "message" }`.
 | PATCH | `/tasks/:id/move` | `{column_id, position}` | `position` = 0-based index in target column (excluding the moved task). Renumbers both columns |
 | DELETE | `/tasks/:id` | – | |
 
-`priority` ∈ `low | medium | high`. `due_date` is `YYYY-MM-DD`. `assignee_id` must be a board member (or `null`).
+`priority` ∈ `low | medium | high`. `due_date` must be `YYYY-MM-DD` (validated). `assignee_id` must be a board member (or `null`).
 
 ## Comments
 | Method | Path | Body | Notes |

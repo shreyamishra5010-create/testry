@@ -12,7 +12,7 @@ export const TaskCard = ({ task, dragging, onEdit, onDelete, onComment, onDragSt
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
       onDragOver={(e) => e.preventDefault()}
-      onDrop={(e) => { e.preventDefault(); e.stopPropagation(); onDropHere(); }}
+      onDrop={(e) => { e.preventDefault(); e.stopPropagation(); const r = e.currentTarget.getBoundingClientRect(); onDropHere(e.clientY > r.top + r.height / 2); }}
       data-testid={`task-card-${task.id}`}
     >
       <button className="task-title" data-testid={`task-open-${task.id}`} onClick={onEdit}>{task.title}</button>
