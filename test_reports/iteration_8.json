@@ -1,0 +1,31 @@
+{
+  "summary": "Retest of the per-account asyncio.Lock login fix. The iteration_7 regression is FIXED. Concurrent correct logins: 10 parallel gave 10x 200 and 20 parallel gave 20x 200, in both pytest and burst_probe.py. Wrong-password bursts stay capped: 40 parallel gave exactly 8x 401 and 32x 429, with and without spoofed XFF. Sequential checks pass: the 9th wrong attempt returns 429, a correct password before the limit resets the counter, and the correct password while locked returns 429. Accounts are independent: 20 wrong logins to A ran in parallel with 10 correct logins to B. B got 10x 200, A got 8x 401 and 12x 429, and afterwards A's correct password returns 429 while B's returns 200. A burst for an unknown email is also capped (8x 401, 22x 429). Full suite: 72/72 pass. UI smoke passes: demo login, open Product Launch (6 cards, 3 columns render), logout returns to the login form.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/auth/login", "issue": "Logins are serialized per email, so N parallel correct logins for one account take about N times the bcrypt time (about 0.2-0.3s each). This is fine at realistic concurrency."},
+      {"endpoint": "POST /api/auth/login", "issue": "For an unknown email the handler skips bcrypt, so it answers measurably faster. That allows user enumeration by timing. Optionally run checkpw against a dummy hash. This is pre-existing, low priority."}
+    ]
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_fastapi_parity_security.py",
+    "/app/backend/tests/burst_probe.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "account_lock: setdefault, increment and pop are synchronous with no await in between, so the refcounted cleanup is race-free on one event loop. The finally block releases the lock when a request is cancelled.",
+    "The stale-key sweep in record_failure now runs at most once every 60s, which resolves the iteration_7 O(n)-per-request concern.",
+    "check_throttle runs inside the lock before bcrypt, so a locked account sends back a fast 429 and doesn't use thread-pool time.",
+    "The throttle and locks are in memory and per process. They are not shared across multiple workers or replicas."
+  ],
+  "updated_files": ["/app/backend/tests/test_fastapi_parity_security.py (added TestAccountLock: 20 concurrent correct logins, A/B independence in parallel, capped burst for an unknown email)"],
+  "success_rate": {"backend": "100% (72/72 pytest, plus burst_probe all as expected)", "frontend": "100%"},
+  "test_credentials": "demo@taskboard.local / demo1234, jordan@taskboard.local / demo1234. The demo accounts were used only for the UI login and were not used for throttle tests.",
+  "seed_data_creation": "Throwaway users test_*@example.com, test_burst_*, test_ok_* and test_ok20_* were created. The test suite also created boards (for example board-tile-20 on the demo dashboard).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Run pytest in the FOREGROUND, because background jobs are killed when the bash call ends: REACT_APP_BACKEND_URL=<frontend/.env> pytest /app/backend/tests (about 3.2 minutes, xdist -n 2 by default). Editing files under backend/tests triggers a backend hot reload, so wait about 5s. The login testids are login-email-input, login-password-input and login-submit-button. The dashboard uses board-tile-{id} and logout-button.",
+  "rca of the issue": "The iteration_7 regression (in-flight successes using up throttle slots) is resolved by serializing check, bcrypt and record/clear per email. Each attempt now sees the final outcome of the previous one."
+}

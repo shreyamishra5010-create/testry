@@ -192,3 +192,38 @@ class TestThrottleBurst:
         email, _ = new_user()
         codes = self._burst(email, 40, True)
         assert codes.count(401) <= 8 and codes.count(401) + codes.count(429) == 40, codes
+
+
+
+# Iteration 8: per-account asyncio.Lock — correct bursts succeed, accounts independent
+class TestAccountLock:
+    def _par(self, jobs):
+        from concurrent.futures import ThreadPoolExecutor
+        def go(j):
+            email, pw = j
+            return email, requests.post(f"{BASE_URL}/api/auth/login", json={"email": email, "password": pw}, timeout=90).status_code
+        with ThreadPoolExecutor(len(jobs)) as ex:
+            return list(ex.map(go, jobs))
+
+    def test_concurrent_20_correct_logins(self):
+        email, _ = new_user()
+        codes = [c for _, c in self._par([(email, "goodpass123")] * 20)]
+        assert codes == [200] * 20, codes
+
+    def test_accounts_independent_parallel(self):
+        a, _ = new_user()
+        b, _ = new_user()
+        jobs = [(a, f"bad{i}") for i in range(20)] + [(b, "goodpass123")] * 10
+        res = self._par(jobs)
+        a_codes = [c for e, c in res if e == a]
+        b_codes = [c for e, c in res if e == b]
+        assert b_codes == [200] * 10, b_codes
+        assert a_codes.count(401) == 8 and a_codes.count(429) == 12, a_codes
+        # A is locked, B still logs in
+        assert requests.post(f"{BASE_URL}/api/auth/login", json={"email": a, "password": "goodpass123"}).status_code == 429
+        assert requests.post(f"{BASE_URL}/api/auth/login", json={"email": b, "password": "goodpass123"}).status_code == 200
+
+    def test_unknown_email_burst_capped(self):
+        email = f"test_nouser_{uuid.uuid4().hex[:10]}@example.com"
+        codes = [c for _, c in self._par([(email, "x")] * 30)]
+        assert codes.count(401) == 8 and codes.count(429) == 22, codes

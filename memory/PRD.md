@@ -6,7 +6,10 @@ Simplified Trello/Jira Kanban tool: email/password JWT auth, boards (default To 
 ## User choices
 Node.js/Express + SQLite · email/password · deleting a column deletes its tasks · bright Trello-like look · sample data included.
 
-## Architecture
+## Architecture (current: FastAPI + MongoDB)
+- backend/server.py (FastAPI) + taskboard/{db,auth,access,seed}.py + taskboard/routes/{auth,boards,columns,tasks}.py; integer ids via counters collection; same API contract as the original Node version
+
+## Architecture (original Node version, replaced)
 - backend/server.js (Express) + src/{db,auth,access}.js + src/routes/*; schema.sql/seed.sql loaded on start
 - backend/server.py = platform launcher (spawns Node on API_PORT, proxies /api from 8001)
 - frontend: App.js routes; pages/{Auth,Dashboard,Board}Page; components/board/*; lib/api.js
@@ -28,5 +31,9 @@ Node.js/Express + SQLite · email/password · deleting a column deletes its task
 
 - 2026-06: Touch dragging (hooks/useTouchDrag.js): press and hold (350ms) on cards or column headers, floating ghost, edge auto-scroll, swipe and tap still work normally, HTML5 drag disabled on coarse pointers. iteration_4: 8/8 passed
 
+- 2026-10: DEPLOY FIX: production has no Node runtime (FileNotFoundError 'node'), so the backend was ported to native FastAPI + MongoDB (motor) with an identical API; Node/SQLite files removed; docs updated
+- 2026-10: Security: strong random JWT secret, login throttle (8 per account and per IP+account per 15 min, serialized per account to stop bursts, spoof-proof), constant-time-ish unknown-email path, security headers, N+1 fix on board list. iteration_5-8: 72/72 backend, UI 100%
+
 ## Backlog
+- P1: Turn off the public demo accounts on the live site (security audit SEC-002)
 - P2: Drop-position indicator line while dragging, member avatars with colors, due-soon highlights, 100+ task performance check

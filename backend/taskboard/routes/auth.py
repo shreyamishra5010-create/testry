@@ -1,5 +1,6 @@
 import re
 
+import bcrypt
 from fastapi import APIRouter, Body, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pymongo.errors import DuplicateKeyError
@@ -9,6 +10,7 @@ from ..db import db, next_id, now
 
 router = APIRouter()
 EMAIL = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
+DUMMY_HASH = bcrypt.hashpw(b"timing-equalizer", bcrypt.gensalt()).decode()
 
 
 def text(body: dict, key: str) -> str:
@@ -39,7 +41,8 @@ async def login(request: Request, body: dict = Body(default_factory=dict)):
     async with account_lock(email):
         check_throttle(keys)
         doc = await db.users.find_one({"email": email})
-        if not doc or not await check_password(text(body, "password"), doc["password_hash"]):
+        valid = await check_password(text(body, "password"), doc["password_hash"] if doc else DUMMY_HASH)
+        if not doc or not valid:
             record_failure(keys)
             raise HTTPException(401, "Email or password is incorrect.")
         clear_failures(keys)
