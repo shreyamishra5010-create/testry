@@ -6,7 +6,7 @@
   "variable": [
     {
       "key": "base",
-      "value": "http://localhost:8002/api"
+      "value": "http://localhost:8001/api"
     },
     {
       "key": "token",

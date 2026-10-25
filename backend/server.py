@@ -1,48 +1,76 @@
-# Launcher: the platform starts this ASGI app; it boots the Node/Express API and forwards requests to it.
-import asyncio
 import os
-import subprocess
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-import httpx
 from dotenv import load_dotenv
-from fastapi import FastAPI, Request
-from fastapi.responses import Response
 
-ROOT = Path(__file__).parent
-load_dotenv(ROOT / ".env")
-NODE_URL = f"http://127.0.0.1:{os.environ['API_PORT']}"
-HOP = {"host", "content-length", "transfer-encoding", "connection", "content-encoding", "keep-alive"}
+load_dotenv(Path(__file__).parent / ".env")
+
+from fastapi import APIRouter, FastAPI, Request  # noqa: E402
+from fastapi.exceptions import RequestValidationError  # noqa: E402
+from fastapi.responses import JSONResponse  # noqa: E402
+from starlette.exceptions import HTTPException as StarletteHTTPException  # noqa: E402
+from starlette.middleware.cors import CORSMiddleware  # noqa: E402
+
+from taskboard.db import client, ensure_indexes  # noqa: E402
+from taskboard.routes import auth, boards, columns, tasks  # noqa: E402
+from taskboard.seed import seed_demo  # noqa: E402
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    proc = subprocess.Popen(["node", "server.js"], cwd=ROOT, env=os.environ.copy())
-    app.state.client = httpx.AsyncClient(base_url=NODE_URL, timeout=30)
-    for _ in range(100):
-        try:
-            await app.state.client.get("/api/health")
-            break
-        except httpx.TransportError:
-            await asyncio.sleep(0.1)
+    await ensure_indexes()
+    await seed_demo()
     yield
-    await app.state.client.aclose()
-    proc.terminate()
-    proc.wait(timeout=5)
+    client.close()
 
 
 app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
 
+api = APIRouter(prefix="/api")
+for module in (auth, boards, columns, tasks):
+    api.include_router(module.router)
 
-@app.api_route("/{path:path}", methods=["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"])
-async def proxy(path: str, request: Request):
-    upstream = await request.app.state.client.request(
-        request.method,
-        f"/{path}",
-        params=request.query_params,
-        content=await request.body(),
-        headers={k: v for k, v in request.headers.items() if k.lower() not in HOP},
-    )
-    headers = {k: v for k, v in upstream.headers.items() if k.lower() not in HOP}
-    return Response(upstream.content, upstream.status_code, headers)
+
+@api.get("/health")
+async def api_health():
+    return {"ok": True, "service": "task-board-api"}
+
+
+app.include_router(api)
+
+
+@app.get("/health")
+async def health():
+    return {"ok": True}
+
+
+@app.exception_handler(StarletteHTTPException)
+async def http_error(request: Request, exc: StarletteHTTPException):
+    message = exc.detail if isinstance(exc.detail, str) else "Request failed."
+    if message == "Not Found":
+        message = "Not found."
+    return JSONResponse({"error": message}, status_code=exc.status_code)
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_error(request: Request, exc: RequestValidationError):
+    return JSONResponse({"error": "Invalid request body."}, status_code=400)
+
+
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    return response
+
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[o.strip() for o in os.environ.get("CORS_ORIGINS", "*").split(",")],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)

@@ -10,6 +10,7 @@ Errors always look like `{ "error": "message" }`.
 | 403 | Not a board member, or owner-only action |
 | 404 | Board, column, task, comment, or invited user not found |
 | 409 | Email already registered |
+| 429 | Too many failed sign-ins (8 per IP+email in 15 minutes) |
 
 ## Auth
 | Method | Path | Body | Returns |

@@ -1,4 +1,6 @@
-# ER Diagram
+# Data model (MongoDB collections)
+
+Each entity is a collection whose `_id` is an integer from the `counters` collection (`{_id: <collection>, seq}`). The API exposes it as `id`. Relationships are id references, and the app enforces cascades.
 
 ```mermaid
 erDiagram

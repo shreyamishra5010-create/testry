@@ -2,7 +2,9 @@
 
 A simplified Trello/Jira-style Kanban tool. Teams create boards, organize work into columns, and drag tasks between them. Every change is saved and protected by board membership.
 
-**Stack:** React (CRA + CRACO) · Node.js / Express · SQLite (`sqlite3`) · JWT auth · bcrypt password hashing · parameterized SQL everywhere.
+**Stack:** React (CRA + CRACO) · Python FastAPI · MongoDB (motor) · JWT auth · bcrypt password hashing.
+
+> The API was first built on Node.js/Express + SQLite. It was ported to FastAPI + MongoDB so it runs on the production hosting (Python runtime with a managed MongoDB). The API contract did not change.
 
 ## Demo accounts
 | Email | Password | Role on "Product Launch" |
@@ -25,34 +27,32 @@ A simplified Trello/Jira-style Kanban tool. Teams create boards, organize work i
 
 ## Running locally
 ```bash
-# backend (API on API_PORT, e.g. 8002)
+# backend
 cd backend
-yarn install
-# .env needs: JWT_SECRET=<random string>  API_PORT=8002
-yarn start
+pip install -r requirements.txt
+# .env needs: MONGO_URL, DB_NAME, JWT_SECRET (long random string), CORS_ORIGINS
+uvicorn server:app --port 8001 --reload
 
 # frontend
 cd frontend
 yarn install
-# .env needs: REACT_APP_BACKEND_URL=http://localhost:8002
+# .env needs: REACT_APP_BACKEND_URL=http://localhost:8001
 yarn start
 ```
-The schema (`backend/schema.sql`) is applied on every start (idempotent). Seed data (`backend/seed.sql`) is loaded only when the database has no users.
+Indexes are created on startup. Demo data (`backend/taskboard/seed.py`) is loaded only when the database has no users.
 
-**Reset the demo data:** stop the API, delete `backend/taskboard.sqlite`, start again.
-
-> On the Emergent preview, supervisor starts `backend/server.py`, a tiny launcher that boots `node server.js` and forwards `/api` traffic to it. The app logic lives entirely in Node.
+**Reset the demo data:** drop the app's collections (`users, boards, board_members, columns, tasks, comments, activity, counters`) and restart the backend.
 
 ## Project layout
 ```
 backend/
-  server.js            Express app wiring
-  server.py            Platform launcher (starts Node, proxies requests)
-  schema.sql, seed.sql Database schema and demo data
-  src/db.js            SQLite connection, query helpers, schema/seed bootstrap
-  src/auth.js          JWT sign / requireAuth middleware
-  src/access.js        Membership checks, board payload, task ordering
-  src/routes/          auth, boards (+members, columns create), columns, tasks (+comments), comments
+  server.py            FastAPI app: routers, error format, security headers, CORS
+  taskboard/db.py      Mongo client, integer id counters, indexes
+  taskboard/auth.py    bcrypt, JWT sign/verify, current_user, login throttling
+  taskboard/access.py  Membership checks, board payload, dense ordering, activity log
+  taskboard/routes/    auth, boards (+members, columns create, activity), columns, tasks (+comments)
+  taskboard/seed.py    Demo data
+  tests/               API test suite (pytest, runs against REACT_APP_BACKEND_URL)
 frontend/src/
   App.js               Session check + routes
   lib/api.js           Fetch client, helpers, optimistic reorder
@@ -66,6 +66,8 @@ docs/
 - **Ordering:** tasks use dense integer positions (`0..n-1`) per column. A move removes the task, inserts it at the requested index, and renumbers both the source and target columns. Simple, always consistent, and cheap at the 100-task scale.
 - **Column deletion:** deletes the column and its tasks (chosen behavior), with a confirmation that shows how many tasks will go.
 - **Access control:** every board, column, task, and comment route resolves the parent board and checks `board_members`. Owner-only: edit/delete board, manage members.
+- **Security:** strong random JWT secret, 7-day tokens, 8 failed logins per IP+email in 15 min → `429`, nosniff/frame-deny headers.
+- **IDs:** integer ids from a `counters` collection, so the API and frontend didn't change.
 - **Validation:** required titles/names, priority enum, email format, 8+ character passwords, duplicate email → `409`, assignee must be a member, target column must belong to the same board.
 
 ## Docs
