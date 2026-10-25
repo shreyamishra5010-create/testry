@@ -1,0 +1,47 @@
+{
+  "summary": "Retest of the X-Forwarded-For throttle bypass, plus regression. The XFF fix works: with a different spoofed XFF on every request, 8 failures return 401, then the 9th returns 429, and the correct password is also 429 while locked. A successful login before the limit clears the counters. Register and login work with bcrypt in asyncio.to_thread, and 10 concurrent correct logins all return 200. The full suite passes 67/67 (64 existing + 3 new), and the old test_spoofed_xff_bypass now passes unchanged. UI smoke passes: demo login, open the Product Launch board (6 tasks), logout clears the token, and there are no page errors. New finding: a concurrent burst gets past the throttle. 40 parallel wrong-password requests to one throwaway account all returned 401 with zero 429s (reproduced 2/2). Moving bcrypt into a thread made this race wider.",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "POST /api/auth/login", "issue": "Race between check and record (TOCTOU). check_throttle() runs, then the handler awaits check_password (to_thread), and only then calls record_failure(). Every request in a concurrent burst passes the check before any failure is recorded. Reproduced with burst_probe.py: 40/40 parallel wrong passwords got 401 and 0 got 429. An attacker gets an unlimited number of guesses per burst (e.g. 1000 at once) per 15-minute window. Fix: reserve the attempt before awaiting bcrypt. With no await between check and append, it's atomic on the single event loop. E.g. check_throttle(keys); record_failure(keys) (or append a pending timestamp); then on success clear_failures(keys). Alternatively use a per-key asyncio.Lock or in-flight counter, and count in-flight attempts toward the limit.", "priority": "HIGH"}
+    ],
+    "minor": [
+      {"endpoint": "taskboard/auth.py _recent", "issue": "Pruning is lazy and per key: a key is only removed when it is touched again. Sprayed keys (2 per unique email) that are never retried stay in _failures forever, so memory still grows without bound under an email-spray attack. Add a periodic or opportunistic sweep, e.g. prune all keys every N record_failure calls, or cap the dict size."},
+      {"endpoint": "POST /api/auth/login", "issue": "The per-account key means anyone can lock any account, e.g. demo@taskboard.local, for 15 minutes with 8 bad attempts (a DoS trade-off). This is acceptable if intended, but document it or consider a progressive delay."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Board view", "issues": ["Task card text (titles and descriptions) renders washed-out or low-contrast gray in the screenshot. Verify that no opacity or 'dragging' style stays applied to cards."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_taskboard_api.py",
+    "/app/backend/tests/test_activity_columns.py",
+    "/app/backend/tests/test_fastapi_parity_security.py",
+    "/app/backend/tests/burst_probe.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "HIGH: close the throttle race in routes/auth.py login. Record or reserve the attempt synchronously right after check_throttle and before awaiting check_password, then clear it on success. Re-run burst_probe.py and expect at most 8 401s.",
+    "Add a global sweep or size cap for _failures so that keys which are never retried are pruned.",
+    "Optional: check task card contrast on the board view."
+  ],
+  "critical_code_review_comments": [
+    "throttle_keys: [email|e, ip|rightmost-xff|e]. The per-account key ignores the IP, which is correct.",
+    "_recent uses .get and pops empty keys, so check_throttle no longer creates entries. Only record_failure (defaultdict) creates keys.",
+    "The throttle is in-memory and per process, so it won't be shared across multiple uvicorn workers."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_fastapi_parity_security.py (added TestThrottleXffAndConcurrency: 3 tests)",
+    "/app/backend/tests/burst_probe.py (new manual probe)"
+  ],
+  "success_rate": {"backend": "100% pytest (67/67); concurrent-burst throttle probe FAILS", "frontend": "100%"},
+  "test_credentials": "demo@taskboard.local / demo1234, jordan@taskboard.local / demo1234. Demo accounts were not used for the throttle tests.",
+  "seed_data_creation": "Throwaway users test_*@example.com and test_burst_*@example.com",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run: REACT_APP_BACKEND_URL=<frontend/.env> pytest /app/backend/tests (pytest.ini uses -n 2). Then run python /app/backend/tests/burst_probe.py. After the race fix, expect '401s: <=8'. Consider turning the probe into a pytest assertion once the fix lands.",
+  "rca of the issue": "In login(), check_throttle(keys) runs, then the handler awaits find_one and to_thread(bcrypt.checkpw), and record_failure runs only after that. The awaits yield the event loop, so N concurrent requests all read the failure count (0) before any of them appends. Reproduce: run burst_probe.py (40 threads); all 40 get 401. Mitigation: make check and increment atomic, with no await between them."
+}

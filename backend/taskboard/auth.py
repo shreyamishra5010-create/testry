@@ -55,6 +55,15 @@ def check_throttle(keys: list[str]):
 def record_failure(keys: list[str]):
     for k in keys:
         _failures[k].append(time.time())
+    if len(_failures) > 5000:
+        for k in list(_failures):
+            _recent(k)
+
+
+def reserve_attempt(keys: list[str]):
+    """Check and count an attempt atomically (no await in between), so parallel bursts can't slip through."""
+    check_throttle(keys)
+    record_failure(keys)
 
 
 def clear_failures(keys: list[str]):

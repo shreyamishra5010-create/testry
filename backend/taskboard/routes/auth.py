@@ -4,7 +4,7 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pymongo.errors import DuplicateKeyError
 
-from ..auth import check_password, check_throttle, clear_failures, throttle_keys, current_user, hash_password, record_failure, sign
+from ..auth import check_password, clear_failures, current_user, hash_password, reserve_attempt, sign, throttle_keys
 from ..db import db, next_id, now
 
 router = APIRouter()
@@ -36,10 +36,9 @@ async def register(body: dict = Body(default_factory=dict)):
 async def login(request: Request, body: dict = Body(default_factory=dict)):
     email = text(body, "email").strip().lower()
     keys = throttle_keys(request, email)
-    check_throttle(keys)
+    reserve_attempt(keys)
     doc = await db.users.find_one({"email": email})
     if not doc or not await check_password(text(body, "password"), doc["password_hash"]):
-        record_failure(keys)
         raise HTTPException(401, "Email or password is incorrect.")
     clear_failures(keys)
     user = {"id": doc["_id"], "name": doc["name"], "email": doc["email"]}

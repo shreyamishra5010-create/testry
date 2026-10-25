@@ -137,3 +137,37 @@ class TestThrottle:
         r = requests.post(f"{BASE_URL}/api/auth/login", json={"email": email, "password": "bad"},
                           headers={"X-Forwarded-For": "203.0.113.77"})
         assert r.status_code == 429, f"throttle bypassed via spoofed X-Forwarded-For (got {r.status_code})"
+
+
+# Iteration 6: per-account throttle ignores XFF; bcrypt in a thread (concurrency)
+class TestThrottleXffAndConcurrency:
+    def test_rotating_xff_every_request_still_429(self):
+        email, _ = new_user()
+        for i in range(8):
+            r = requests.post(f"{BASE_URL}/api/auth/login", json={"email": email, "password": "bad"},
+                              headers={"X-Forwarded-For": f"198.51.100.{i + 1}"})
+            assert r.status_code == 401, f"attempt {i+1}: {r.status_code}"
+        r = requests.post(f"{BASE_URL}/api/auth/login", json={"email": email, "password": "bad"},
+                          headers={"X-Forwarded-For": "203.0.113.200"})
+        assert r.status_code == 429
+        assert "error" in r.json()
+        r = requests.post(f"{BASE_URL}/api/auth/login", json={"email": email, "password": "goodpass123"},
+                          headers={"X-Forwarded-For": "192.0.2.55, 10.0.0.1"})
+        assert r.status_code == 429
+
+    def test_register_login_roundtrip(self):
+        email, data = new_user()
+        assert isinstance(data["token"], str) and data["user"]["email"] == email
+        r = requests.post(f"{BASE_URL}/api/auth/login", json={"email": email, "password": "goodpass123"})
+        assert r.status_code == 200
+        assert r.json()["user"]["email"] == email
+        assert requests.get(f"{BASE_URL}/api/me", headers={"Authorization": f"Bearer {r.json()['token']}"}).status_code == 200
+
+    def test_concurrent_logins_succeed(self):
+        from concurrent.futures import ThreadPoolExecutor
+        email, _ = new_user()
+        def go(_):
+            return requests.post(f"{BASE_URL}/api/auth/login", json={"email": email, "password": "goodpass123"}, timeout=30).status_code
+        with ThreadPoolExecutor(10) as ex:
+            codes = list(ex.map(go, range(10)))
+        assert codes == [200] * 10, codes
