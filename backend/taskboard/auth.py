@@ -1,3 +1,4 @@
+import asyncio
 import os
 import time
 from collections import defaultdict
@@ -16,12 +17,12 @@ WINDOW_SECONDS = 15 * 60
 _failures: dict[str, list[float]] = defaultdict(list)
 
 
-def hash_password(password: str) -> str:
-    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+async def hash_password(password: str) -> str:
+    return (await asyncio.to_thread(bcrypt.hashpw, password.encode(), bcrypt.gensalt())).decode()
 
 
-def check_password(password: str, hashed: str) -> bool:
-    return bcrypt.checkpw(password.encode(), hashed.encode())
+async def check_password(password: str, hashed: str) -> bool:
+    return await asyncio.to_thread(bcrypt.checkpw, password.encode(), hashed.encode())
 
 
 def sign(user: dict) -> str:
@@ -29,24 +30,36 @@ def sign(user: dict) -> str:
     return jwt.encode({"id": user["id"], "email": user["email"], "name": user["name"], "exp": exp}, JWT_SECRET, algorithm="HS256")
 
 
-def client_key(request: Request, email: str) -> str:
-    ip = request.headers.get("x-forwarded-for", "").split(",")[0].strip() or (request.client.host if request.client else "")
-    return f"{ip}|{email}"
+def throttle_keys(request: Request, email: str) -> list[str]:
+    # Per-account limit can't be dodged by spoofing headers; per-IP uses the proxy-appended (right-most) hop.
+    hops = [h.strip() for h in request.headers.get("x-forwarded-for", "").split(",") if h.strip()]
+    ip = hops[-1] if hops else (request.client.host if request.client else "")
+    return [f"email|{email}", f"ip|{ip}|{email}"]
 
 
-def check_throttle(key: str):
+def _recent(key: str) -> list[float]:
     cutoff = time.time() - WINDOW_SECONDS
-    _failures[key] = [t for t in _failures[key] if t > cutoff]
-    if len(_failures[key]) >= MAX_FAILURES:
+    hits = [t for t in _failures.get(key, []) if t > cutoff]
+    if hits:
+        _failures[key] = hits
+    else:
+        _failures.pop(key, None)
+    return hits
+
+
+def check_throttle(keys: list[str]):
+    if any(len(_recent(k)) >= MAX_FAILURES for k in keys):
         raise HTTPException(429, "Too many failed sign-in attempts. Please wait 15 minutes and try again.")
 
 
-def record_failure(key: str):
-    _failures[key].append(time.time())
+def record_failure(keys: list[str]):
+    for k in keys:
+        _failures[k].append(time.time())
 
 
-def clear_failures(key: str):
-    _failures.pop(key, None)
+def clear_failures(keys: list[str]):
+    for k in keys:
+        _failures.pop(k, None)
 
 
 async def current_user(request: Request) -> dict:

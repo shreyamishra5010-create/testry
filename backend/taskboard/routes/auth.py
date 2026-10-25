@@ -4,7 +4,7 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pymongo.errors import DuplicateKeyError
 
-from ..auth import check_password, check_throttle, clear_failures, client_key, current_user, hash_password, record_failure, sign
+from ..auth import check_password, check_throttle, clear_failures, throttle_keys, current_user, hash_password, record_failure, sign
 from ..db import db, next_id, now
 
 router = APIRouter()
@@ -25,7 +25,7 @@ async def register(body: dict = Body(default_factory=dict)):
         raise HTTPException(409, "An account with that email already exists.")
     user_id = await next_id("users")
     try:
-        await db.users.insert_one({"_id": user_id, "name": name, "email": email, "password_hash": hash_password(password), "created_at": now()})
+        await db.users.insert_one({"_id": user_id, "name": name, "email": email, "password_hash": await hash_password(password), "created_at": now()})
     except DuplicateKeyError:
         raise HTTPException(409, "An account with that email already exists.")
     user = {"id": user_id, "name": name, "email": email}
@@ -35,13 +35,13 @@ async def register(body: dict = Body(default_factory=dict)):
 @router.post("/auth/login")
 async def login(request: Request, body: dict = Body(default_factory=dict)):
     email = text(body, "email").strip().lower()
-    key = client_key(request, email)
-    check_throttle(key)
+    keys = throttle_keys(request, email)
+    check_throttle(keys)
     doc = await db.users.find_one({"email": email})
-    if not doc or not check_password(text(body, "password"), doc["password_hash"]):
-        record_failure(key)
+    if not doc or not await check_password(text(body, "password"), doc["password_hash"]):
+        record_failure(keys)
         raise HTTPException(401, "Email or password is incorrect.")
-    clear_failures(key)
+    clear_failures(keys)
     user = {"id": doc["_id"], "name": doc["name"], "email": doc["email"]}
     return {"token": sign(user), "user": user}
 

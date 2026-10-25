@@ -1,0 +1,47 @@
+{
+  "summary": "Tested the FastAPI + Motor/MongoDB rewrite (backend and frontend). Deployment fix confirmed: no node backend process runs (the only node processes are the frontend dev server, code-server and the mongodb-mcp tool), supervisor runs uvicorn from /app/backend, and the requirements use fastapi, motor, PyJWT and bcrypt. GET /api/health returns 200 {ok:true, service:'task-board-api'}. GET /health returns 200 {ok:true} on :8001, but on the public URL /health goes to the frontend (HTML 200), which is expected ingress routing. Regression: the existing suite of 43 tests passes 43/43 against the public URL. New suite test_fastapi_parity_security.py: 20 of 21 pass. Passing checks: unknown /api routes return 404 {error:'Not found.'}; malformed or non-object JSON returns 400 {error}; tokens signed with a foreign secret, garbage tokens, alg=none tokens, a missing bearer token and a wrong auth scheme all return 401; with throwaway users, 8 wrong passwords return 401 and the 9th returns 429, and the correct password is also blocked once throttled; a successful login resets the counter; email case is normalised. The one failure is a security issue: the throttle can be bypassed by sending a spoofed X-Forwarded-For header. Persistence: a task and a comment survived 'supervisorctl restart backend', and the pre-restart token still works. UI E2E on desktop at 1920px: 100% of requested flows passed with no console errors. Covered flows: demo login, dashboard stats (1/6/0), opening the board, task create, edit and delete with priority and assignee, assignee filter (Jordan / Unassigned), comment add and delete, HTML5 drag of a task across columns and of a column, both persisting after reload (checked via API), member invite and remove (an unknown email shows a toast for the 404), board rename and restore, the Activity panel listing the new actions, and logout clearing the token.",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "POST /api/auth/login", "issue": "Anyone can bypass the login throttle. client_key() uses the FIRST X-Forwarded-For entry, and the client controls that value. After the throttle locks an email (9th attempt returns 429), sending 'X-Forwarded-For: 203.0.113.77' resets the key and returns 401 again, so brute force continues without limit. Fix: use the right-most entry (the one appended by the trusted ingress), or the hop count of trusted proxies. Also consider a per-email limit regardless of IP.", "priority": "HIGH"}
+    ],
+    "minor": [
+      {"endpoint": "POST /api/auth/login", "issue": "_failures is a defaultdict that is never pruned. check_throttle() creates an entry for every unique IP|email, including successful-path lookups before clear, so memory grows without bound under spray attacks. Delete keys whose lists are empty after the cutoff, or use a TTL cache."},
+      {"endpoint": "POST /api/auth/login, /api/auth/register", "issue": "bcrypt.checkpw and hashpw run synchronously inside async handlers and block the event loop (about 50-100ms each). Use await asyncio.to_thread(...) or run_in_threadpool."},
+      {"endpoint": "GET /health (public URL)", "issue": "Public /health is served by the frontend (HTML). Only /api/health reaches the backend through ingress. This is fine if the platform health check targets :8001 directly. Otherwise point it at /api/health."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_taskboard_api.py",
+    "/app/backend/tests/test_activity_columns.py",
+    "/app/backend/tests/test_fastapi_parity_security.py",
+    "/app/backend/tests/restart_persistence_check.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "HIGH: fix the X-Forwarded-For spoofing bypass in taskboard/auth.py client_key(). Use the trusted (right-most) proxy entry and/or add a per-email limit.",
+    "Prune empty or expired keys from _failures to avoid unbounded memory growth.",
+    "Wrap bcrypt calls in asyncio.to_thread to avoid blocking the event loop.",
+    "Optional: CORS_ORIGINS falls back to '*' via os.environ.get default. The guidelines say to omit defaults, but this is harmless with allow_credentials=False."
+  ],
+  "critical_code_review_comments": [
+    "The port is functionally faithful to the Node contract (compared against the git history of backend/src/routes/*.js). Integer ids come from an atomic find_one_and_update counter, the {error} shapes and status codes match, and _id is mapped to id in every response.",
+    "Note: the throttle is in-memory and per process. It resets on restart and won't be shared if uvicorn runs multiple workers in production.",
+    "delete_board and delete_column cascade manually, without a transaction. A crash mid-way could leave orphan tasks or comments. Acceptable for an MVP.",
+    "remove_member returns 200 for a user who is not a member (same as the Node version)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_fastapi_parity_security.py",
+    "/app/backend/tests/restart_persistence_check.py"
+  ],
+  "success_rate": {"backend": "98% (63/64 pytest; the only failure is the XFF throttle bypass)", "frontend": "100%"},
+  "test_credentials": "demo@taskboard.local / demo1234 (owner), jordan@taskboard.local / demo1234 (member), from /app/memory/test_credentials.md. Demo accounts were never used for the throttle tests.",
+  "seed_data_creation": "Created throwaway users test_*@example.com and test_inv_*@example.com. Board 1 changed: column order is now [In Progress, To Do, Done] and task 3 is in Done. Test tasks and comments were deleted, and the board name was restored. The main agent said it will reset the DB.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "pytest.ini forces -n 2 --dist loadscope. Run: REACT_APP_BACKEND_URL=<frontend/.env> pytest /app/backend/tests. test_spoofed_xff_bypass is expected to fail until the XFF fix lands. restart_persistence_check.py is a manual helper: run 'python restart_persistence_check.py create', then restart the backend, then run 'python restart_persistence_check.py verify'. Desktop HTML5 DnD works with Playwright locator.drag_to. Do not open backend/.env."
+}

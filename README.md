@@ -66,7 +66,7 @@ docs/
 - **Ordering:** tasks use dense integer positions (`0..n-1`) per column. A move removes the task, inserts it at the requested index, and renumbers both the source and target columns. Simple, always consistent, and cheap at the 100-task scale.
 - **Column deletion:** deletes the column and its tasks (chosen behavior), with a confirmation that shows how many tasks will go.
 - **Access control:** every board, column, task, and comment route resolves the parent board and checks `board_members`. Owner-only: edit/delete board, manage members.
-- **Security:** strong random JWT secret, 7-day tokens, 8 failed logins per IP+email in 15 min → `429`, nosniff/frame-deny headers.
+- **Security:** strong random JWT secret, 7-day tokens, 8 failed logins per account (and per IP+account) in 15 min → `429`, nosniff/frame-deny headers.
 - **IDs:** integer ids from a `counters` collection, so the API and frontend didn't change.
 - **Validation:** required titles/names, priority enum, email format, 8+ character passwords, duplicate email → `409`, assignee must be a member, target column must belong to the same board.
 
