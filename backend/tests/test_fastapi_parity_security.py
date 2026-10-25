@@ -171,3 +171,24 @@ class TestThrottleXffAndConcurrency:
         with ThreadPoolExecutor(10) as ex:
             codes = list(ex.map(go, range(10)))
         assert codes == [200] * 10, codes
+
+
+# Iteration 7: atomic reserve_attempt — concurrent wrong-password bursts must be capped at MAX_FAILURES
+class TestThrottleBurst:
+    def _burst(self, email, n, xff):
+        from concurrent.futures import ThreadPoolExecutor
+        def go(i):
+            h = {"X-Forwarded-For": f"198.51.100.{i + 1}"} if xff else {}
+            return requests.post(f"{BASE_URL}/api/auth/login", json={"email": email, "password": f"bad{i}"}, headers=h, timeout=60).status_code
+        with ThreadPoolExecutor(n) as ex:
+            return list(ex.map(go, range(n)))
+
+    def test_wrong_burst_capped(self):
+        email, _ = new_user()
+        codes = self._burst(email, 40, False)
+        assert codes.count(401) <= 8 and codes.count(401) + codes.count(429) == 40, codes
+
+    def test_wrong_burst_spoofed_xff_capped(self):
+        email, _ = new_user()
+        codes = self._burst(email, 40, True)
+        assert codes.count(401) <= 8 and codes.count(401) + codes.count(429) == 40, codes

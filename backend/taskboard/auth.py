@@ -2,6 +2,7 @@ import asyncio
 import os
 import time
 from collections import defaultdict
+from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 
 import bcrypt
@@ -52,18 +53,32 @@ def check_throttle(keys: list[str]):
         raise HTTPException(429, "Too many failed sign-in attempts. Please wait 15 minutes and try again.")
 
 
+_last_sweep = 0.0
+_locks: dict[str, list] = {}
+
+
+@asynccontextmanager
+async def account_lock(email: str):
+    """Serialize sign-in attempts per account, so a parallel burst is checked and counted one at a time."""
+    entry = _locks.setdefault(email, [asyncio.Lock(), 0])
+    entry[1] += 1
+    try:
+        async with entry[0]:
+            yield
+    finally:
+        entry[1] -= 1
+        if not entry[1]:
+            _locks.pop(email, None)
+
+
 def record_failure(keys: list[str]):
+    global _last_sweep
     for k in keys:
         _failures[k].append(time.time())
-    if len(_failures) > 5000:
+    if time.time() - _last_sweep > 60:
+        _last_sweep = time.time()
         for k in list(_failures):
             _recent(k)
-
-
-def reserve_attempt(keys: list[str]):
-    """Check and count an attempt atomically (no await in between), so parallel bursts can't slip through."""
-    check_throttle(keys)
-    record_failure(keys)
 
 
 def clear_failures(keys: list[str]):

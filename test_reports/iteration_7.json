@@ -1,0 +1,42 @@
+{
+  "summary": "Retest of the login throttle race fix. The wrong-password burst is now capped. 40 parallel wrong-password logins gave 8x 401 and 32x 429, in both the plain run and the run with spoofed XFF (2/2 probe runs, plus 2 new pytest tests). Sequential checks pass: the 9th attempt returns 429, a correct password before the limit returns 200 and resets the counter, and the correct password while locked returns 429. NEW REGRESSION: concurrent CORRECT logins now get 429. 10 parallel correct logins for a fresh account gave [200,200,200,429,200,200,200,429,200,200]. 20 parallel gave 8x 200 and 12x 429. Reproduced 3/3, including the existing pytest test_concurrent_logins_succeed. Full suite: 68/69 pass, and the only failure is that real bug. UI passes: demo login, open Product Launch, all 6 cards have opacity 1, no .dragging class, title color #172b4d, also after a real mouse drag, then logout returns to the login screen.",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "POST /api/auth/login", "issue": "reserve_attempt() records every attempt, including ones that will succeed, before the bcrypt await. clear_failures only runs after the await. So successful logins that are still in flight use up the same 8 slots, and parallel correct logins get 429. This is a regression: test_concurrent_logins_succeed now fails. Users with several tabs or clients, retries, or SSO-like bursts get locked out. One quick burst of 9+ correct logins blocks the account until a success clears it.", "priority": "HIGH"}
+    ],
+    "minor": [
+      {"endpoint": "taskboard/auth.py record_failure", "issue": "When more than 5000 keys are still live inside the window, every record_failure call runs a full O(n) sweep. This only happens after the dict passes 5000 entries. Under email spraying, each failed login then costs an O(n) scan on the event loop, which is a CPU amplification risk. Sweep at most once every N seconds or N calls, or use a TTL or bounded structure."},
+      {"endpoint": "POST /api/auth/login", "issue": "The per-account lockout is a known, accepted trade-off. It is not re-reported as a bug."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_fastapi_parity_security.py",
+    "/app/backend/tests/burst_probe.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "HIGH: let concurrent correct logins succeed while wrong bursts stay capped. Option A (simplest): use a per-email asyncio.Lock around reserve, bcrypt and clear/keep. Attempts for one email run one at a time, a success clears the counter before the next attempt checks, and wrong bursts still stop at 8. Option B: keep the reservation, but on success remove that request's own timestamp. When the limit is reached and reservations are still in flight, wait for them to finish before returning 429. Then re-run test_concurrent_logins_succeed, TestThrottleBurst and burst_probe.py.",
+    "Rate-limit the more-than-5000 sweep so it can't run on every request."
+  ],
+  "critical_code_review_comments": [
+    "reserve_attempt is check plus append with no await in between. On a single event loop that is atomic, so the TOCTOU from iteration_6 is closed.",
+    "clear_failures on success removes both keys, including reservations from other in-flight wrong attempts. That's acceptable because only someone holding the real password can trigger it.",
+    "The throttle is in memory and per process. It resets on restart and is not shared across workers."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_fastapi_parity_security.py (added TestThrottleBurst: 2 tests, wrong-password burst plain and with spoofed XFF, at most 8 401s)",
+    "/app/backend/tests/burst_probe.py (extended: wrong bursts plain and XFF, correct bursts x10 and x20)"
+  ],
+  "success_rate": {"backend": "68/69 pytest (98.5%). The one failure is a real regression in concurrent correct logins.", "frontend": "100%"},
+  "test_credentials": "demo@taskboard.local / demo1234, jordan@taskboard.local / demo1234. Demo accounts were not used for throttle tests.",
+  "seed_data_creation": "Throwaway users test_burst_*, test_ok_*, test_ok20_* and test_*@example.com",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run: REACT_APP_BACKEND_URL=<frontend/.env> pytest /app/backend/tests (about 2.5 minutes, -n 2). Then run python /app/backend/tests/burst_probe.py in the background. Editing files under backend/tests triggers a backend hot reload, so wait a few seconds afterwards. Clicks in the UI need force=True because the emergent overlay host intercepts pointer events. No existing test expectations were changed: test_concurrent_logins_succeed is a valid expectation.",
+  "rca of the issue": "In login(), reserve_attempt(keys) appends a timestamp for every request, then the handler awaits find_one and to_thread(checkpw), and only then calls clear_failures. With N parallel correct logins, the first 8 reservations fill the window before any of them reaches clear_failures. Later arrivals see 8 or more and get 429, and once a success clears the counter, new ones get through again. That explains the interleaved pattern. Reproduce: register a fresh user and send 10 to 20 parallel correct logins. Fix: serialize per email (asyncio.Lock), or don't count in-flight attempts as failures but wait for them to finish before refusing."
+}
